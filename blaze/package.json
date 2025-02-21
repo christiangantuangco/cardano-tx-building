@@ -1,0 +1,1 @@
+{ "dependencies": { "@blaze-cardano/core": "^0.6.3", "@blaze-cardano/sdk": "^0.2.25", "dotenv": "^16.4.7", "tsx": "^4.19.3" } }
