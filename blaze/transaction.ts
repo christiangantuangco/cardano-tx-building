@@ -2,9 +2,9 @@ import {
     Address,
     addressFromValidator,
     Bip32PrivateKey,
+    Credential,
     CredentialType,
     Ed25519KeyHashHex,
-    Hash28ByteBase16,
     HexBlob,
     mnemonicToEntropy,
     NetworkId,
@@ -39,77 +39,41 @@ const DatumAddressSchema = Data.Object({
 type DatumAddress = Static<typeof DatumAddressSchema>;
 const DatumAddress = DatumAddressSchema as unknown as DatumAddress;
 
-const LendDatumSchema = Data.Object({
-    adaOwner: DatumAddress,
-    collateralDetails: CollateralDetails,
-    loanAmount: Data.Integer(),
-    interestAmount: Data.Integer(),
-    loanDuration: Data.Integer(),
+const TokenDetailsSchema = Data.Object({
+    policy_id: Data.Bytes(),
+    asset_name: Data.Bytes(),
+    amount: Data.Integer(),
 });
-type LendDatum = Static<typeof LendDatumSchema>;
-const LendDatum = LendDatumSchema as unknown as LendDatum;
+type TokenDetails = Static<typeof TokenDetailsSchema>;
+const TokenDetails = TokenDetailsSchema as unknown as TokenDetails;
 
-const OutputReferenceSchema = Data.Object({
-    transactionId: Data.Bytes(),
-    outputIndex: Data.Integer(),
+const DatumSchema = Data.Object({
+    owner: DatumAddress,
+    token: TokenDetails,
 });
-type OutputReference = Static<typeof OutputReferenceSchema>;
-const OutputReference = OutputReferenceSchema as unknown as OutputReference;
-
-const BorrowDatumSchema = Data.Object({
-    adaOwner: Data.Bytes(),
-    assetOwner: Data.Bytes(),
-    collateralDetails: CollateralDetails,
-    loanAmount: Data.Integer(),
-    interestAmount: Data.Integer(),
-    loanEndTime: Data.Integer(),
-    outputReference: OutputReference,
-});
-type BorrowDatum = Static<typeof BorrowDatumSchema>;
-const BorrowDatum = BorrowDatumSchema as unknown as BorrowDatum;
-
-const FeeOutputDatumSchema = Data.Object({
-    outputReference: OutputReference
-});
-type FeeOutput = Static<typeof FeeOutputDatumSchema>;
-const FeeOutput = FeeOutputDatumSchema as unknown as FeeOutput;
-
-const OutputIndexesSchema = Data.Object({
-    outputIndex: Data.Integer(),
-    feeOutputIndex: Data.Nullable(Data.Integer()),
-    scriptChangeIndex: Data.Nullable(Data.Integer()),
-});
-type OutputIndexes = Static<typeof OutputIndexesSchema>;
-const OutputIndexes = OutputIndexesSchema as unknown as OutputIndexes;
-
-const LevvyTypeSchema = Data.Enum([
-    Data.Object({ Tokens: Data.Object([]) }),
-    Data.Object({ Nfts: Data.Object([]) })
-])
-type LevvyType = Static<typeof LevvyTypeSchema>;
-const LevvyType = LevvyTypeSchema as unknown as LevvyType;
-
-const LevvyTokenSchema = Data.Object(Data.void())
-type LevvyToken = Static<typeof LevvyTokenSchema>;
-const LevvyToken = LevvyTokenSchema as unknown as LevvyToken;
+type Datum = Static<typeof DatumSchema>;
+const Datum = DatumSchema as unknown as Datum;
 
 const ActionSchema = Data.Enum([
-    Data.Object({ BorrowAction: LevvyType }),
-    Data.Object({ RepayAction: LevvyType }),
-    Data.Object({ ForecloseAction: LevvyType }),
-    Data.Object({ CancelAction: LevvyType }),
+    Data.Object({ Swap: Data.Object([]) }),
+    Data.Object({ Cancel: Data.Object([]) }),
 ]);
 type Action = Static<typeof ActionSchema>;
 const Action = ActionSchema as unknown as Action;
 
+const IndexesSchema = Data.Object({
+    input_index: Data.Integer(),
+    output_index: Data.Nullable(Data.Integer()),
+    fee_index: Data.Integer(),
+});
+type Indexes = Static<typeof IndexesSchema>;
+const Indexes = IndexesSchema as unknown as Indexes;
+
 const WithdrawRedeemerSchema = Data.Object({
-    arrangement: Data.Array(
-        Data.Tuple([
-            Data.Integer(),
-            OutputIndexes,
-            Action
-        ])
-    )
+    operation: Data.Array(Data.Tuple([
+        Data.Object({ action: Action }),
+        Data.Object({ indexes: Indexes })
+    ])),
 });
 type WithdrawRedeemer = Static<typeof WithdrawRedeemerSchema>;
 const WithdrawRedeemer = WithdrawRedeemerSchema as unknown as WithdrawRedeemer;
@@ -134,102 +98,95 @@ async function main() {
         HexBlob(process.env["COMPILED_CODE"]!)
     ));
 
-    const validatorAddr = addressFromValidator(NetworkId.Testnet, script)
-    const walletAddr = wallet.address;
+    const validatorAddr = addressFromValidator(NetworkId.Testnet, script);
+    const feeAddr = Address.fromBech32(process.env["FEE_ADDRESS"]!);
 
-    console.log(walletAddr.toBech32());
-}
-
-async function lockScriptRefToContract(blaze: Blaze<Blockfrost, HotWallet>, validatorAddr: Address, script: Script) {
-    const scriptRefTx = await blaze
-        .newTransaction()
-        .deployScript(script, validatorAddr)
-        .complete();
-
-    const signedTx = await blaze.signTransaction(scriptRefTx);
-    const txId = await blaze.provider.postTransactionToChain(signedTx);
-    console.log("Transaction Id", txId);
-}
-
-async function lockAssetsToContract(blaze: Blaze<Blockfrost, HotWallet>, validatorAddr: Address) {
-    const lendCollateralDetails = Data.to({
-        policyId: "8b05e87a51c1d4a0fa888d2bb14dbc25e8c343ea379a171b63aa84a0",
-        assetName: "434e4354",
-        collateralAmount: 10_000n,
-    }, CollateralDetails);
-
-    const paymentCredential = Data.to({
-        keyHash: "8d775cd4e9397c2359f1b1c491ebee8541281abba5f3ed432e37882d"
-    }, DatumCredential);
-    
-    const ownerAddress = Data.to({
-        paymentCredential: paymentCredential,
-        stakeCredential: null
-    }, DatumAddress)
-
-    const lendDatum = Data.to({
-        adaOwner: ownerAddress,
-        collateralDetails: lendCollateralDetails,
-        loanAmount: 10_000_000n,
-        interestAmount: 5_000_000n,
-        loanDuration: 60n,
-    }, LendDatum);
-
-    const lendTx = await blaze
-        .newTransaction()
-        .lockLovelace(validatorAddr, 10_000_000n, lendDatum)
-        .complete();
-
-    const signedTx = await blaze.signTransaction(lendTx);
-    const txId = await blaze.provider.postTransactionToChain(signedTx);
-    console.log("Transaction Id", txId);
-}
-
-async function cancelLockAssetsFromContract(blaze: Blaze<Blockfrost, HotWallet>, wallet: HotWallet, script: Script) {
     const rewardAccount = RewardAccount.fromCredential({
         type: CredentialType.ScriptHash,
         hash: script.hash()
-    }, NetworkId.Testnet)
+    }, NetworkId.Testnet);
 
+    lock(blaze, validatorAddr, wallet)
+}
+
+// Lock an asset to Smart Contract
+async function lock(blaze: Blaze<Blockfrost, HotWallet>, validatorAddr: Address, ownerWallet: HotWallet) {
+    const datum = Data.to({
+        owner: Data.to({
+            paymentCredential: Data.to({
+                keyHash: ownerWallet.address.asBase()?.getPaymentCredential().hash!
+            }, DatumCredential),
+            stakeCredential: null
+        }, DatumAddress),
+        token: Data.to({
+            policy_id: "0d85a956ba19b06f15d74d96c94146dc3f7ec95b64123e397b8f8fe5",
+            asset_name: "54455354455253",
+            amount: 1000n,
+        }, TokenDetails),
+    }, Datum)
+
+    const lockTx = await blaze
+        .newTransaction()
+        .lockLovelace(validatorAddr, 10_000_000n, datum)
+        .complete();
+
+    const signedTx = await blaze.signTransaction(lockTx);
+    const txId = await blaze.provider.postTransactionToChain(signedTx);
+    console.log("Transaction Id", txId);
+}
+
+// Cancel a locked utxo from Smart Contract
+async function cancel(
+    blaze: Blaze<Blockfrost, HotWallet>,
+    script: Script,
+    rewardAccount: RewardAccount,
+    feeAddr: Address,
+    ownerWallet: HotWallet
+) {
     const lockedUtxos = await blaze.provider.resolveUnspentOutputs([
         new TransactionInput(
-            TransactionId("88c29800a9365287905816ad0c8fc9c4bd2d1397f6694ca82fe5106682513baa"),
+            TransactionId("a11d37b4116f95f454e44083980efa3f09ad909a4cd7f751253c2cf1cd505e92"),
             0n
         )
     ]);
 
-    console.log(rewardAccount);
-    console.log(lockedUtxos[0].toCbor());
+    const cancelAction = Data.to({ Cancel: Data.Object([]) }, Action);
 
-    const withdrawRedeemer = Data.to({   
-        arrangement: [
-            [
-                0n,
-                Data.to({
-                    outputIndex: 0n,
-                    feeOutputIndex: null,
-                    scriptChangeIndex: null, 
-                }, OutputIndexes),
-                Data.to({
-                    CancelAction: Data.to({ Tokens: Data.Object([]) }, LevvyType)
-                }, Action)
-            ]
-        ]
-        
+    const indexes = Data.to({
+        input_index: 0n,
+        output_index: null,
+        fee_index: 0n,
+    }, Indexes)
+
+    const withdrawRedeemer = Data.to({
+        operation: [[ cancelAction, indexes ]]
     }, WithdrawRedeemer)
-    console.log(withdrawRedeemer.toCbor());
 
     const cancelTx = await blaze
         .newTransaction()
         .addInput(lockedUtxos[0], Data.void())
-        .provideScript(script)
-        .addRequiredSigner(Ed25519KeyHashHex(wallet.address.asBase()?.getPaymentCredential().hash!))
+        .addRequiredSigner(Ed25519KeyHashHex(ownerWallet.address.asBase()?.getPaymentCredential().hash!))
         .addWithdrawal(rewardAccount, 0n, withdrawRedeemer)
+        .payLovelace(feeAddr, 2_000_000n)
+        .provideScript(script)
         .complete();
-    
-    console.log(cancelTx.toCbor())
 
     const signedTx = await blaze.signTransaction(cancelTx);
+    const txId = await blaze.provider.postTransactionToChain(signedTx);
+    console.log("Transaction Id", txId);
+}
+
+// Register Stake Credential
+async function registerCredential(blaze: Blaze<Blockfrost, HotWallet>, script: Script) {
+    const registerTx = await blaze
+        .newTransaction()
+        .addRegisterStake(Credential.fromCore({
+            type: CredentialType.ScriptHash,
+            hash: script.hash()
+        }))
+        .complete();
+
+    const signedTx = await blaze.signTransaction(registerTx);
     const txId = await blaze.provider.postTransactionToChain(signedTx);
     console.log("Transaction Id", txId);
 }
