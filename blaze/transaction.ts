@@ -1,6 +1,8 @@
 import {
     Address,
     addressFromValidator,
+    AssetId,
+    AssetName,
     Bip32PrivateKey,
     Credential,
     CredentialType,
@@ -9,10 +11,12 @@ import {
     mnemonicToEntropy,
     NetworkId,
     PlutusV3Script,
+    PolicyId,
     RewardAccount,
     Script,
     TransactionId,
     TransactionInput,
+    Value,
     wordlist,
 } from "@blaze-cardano/core";
 import { HotWallet, Blaze, Data, Static, Blockfrost, Wallet } from "@blaze-cardano/sdk";
@@ -106,7 +110,7 @@ async function main() {
         hash: script.hash()
     }, NetworkId.Testnet);
 
-    lock(blaze, validatorAddr, wallet)
+    swap(blaze, script, rewardAccount, feeAddr, wallet);
 }
 
 // Lock an asset to Smart Contract
@@ -121,19 +125,68 @@ async function lock(blaze: Blaze<Blockfrost, HotWallet>, validatorAddr: Address,
         token: Data.to({
             policy_id: "0d85a956ba19b06f15d74d96c94146dc3f7ec95b64123e397b8f8fe5",
             asset_name: "54455354455253",
-            amount: 1000n,
+            amount: 500n,
         }, TokenDetails),
     }, Datum)
 
     const lockTx = await blaze
         .newTransaction()
-        .lockLovelace(validatorAddr, 10_000_000n, datum)
+        .lockLovelace(validatorAddr, 5_000_000n, datum)
         .complete();
 
     const signedTx = await blaze.signTransaction(lockTx);
     const txId = await blaze.provider.postTransactionToChain(signedTx);
     console.log("Transaction Id", txId);
 }
+
+// Unlock the asset from Smart Contract
+async function swap(
+    blaze: Blaze<Blockfrost, HotWallet>,
+    script: Script,
+    rewardAccount: RewardAccount,
+    feeAddr: Address,
+    ownerWallet: HotWallet
+) {
+    const lockedUtxos = await blaze.provider.resolveUnspentOutputs([
+        new TransactionInput(
+            TransactionId("ea575247643567730735a7c2b0f225b52685d44eb5070dc2853c05f2417acbeb"),
+            0n
+        )
+    ]);
+
+    const swapAction = Data.to({ Swap: Data.Object([]) }, Action);
+
+    const indexes = Data.to({
+        input_index: 0n,
+        output_index: 0n,
+        fee_index: 0n,
+    }, Indexes);
+
+    const withdrawRedeemer = Data.to({
+        operation: [[ swapAction, indexes ]]
+    }, WithdrawRedeemer);
+
+    const policy_id = PolicyId("0d85a956ba19b06f15d74d96c94146dc3f7ec95b64123e397b8f8fe5");
+    const asset_name = AssetName("54455354455253");
+    const asset_id = AssetId.fromParts(policy_id, asset_name);
+
+    const tokenMapper = new Map<AssetId, bigint>();
+    const token = tokenMapper.set(asset_id, 500n);
+
+    const swapTx = await blaze
+        .newTransaction()
+        .addInput(lockedUtxos[0], Data.void())
+        .addWithdrawal(rewardAccount, 0n, withdrawRedeemer)
+        .payAssets(ownerWallet.address, new Value(2_000_000n, token))
+        .payLovelace(feeAddr, 2_000_000n)
+        .provideScript(script)
+        .complete();
+
+    const signedTx = await blaze.signTransaction(swapTx);
+    const txId = await blaze.provider.postTransactionToChain(signedTx);
+    console.log("Transaction Id", txId);
+}
+
 
 // Cancel a locked utxo from Smart Contract
 async function cancel(
