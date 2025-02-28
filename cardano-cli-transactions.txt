@@ -1,0 +1,56 @@
+echo "d87980" | xxd -r -p > datum.bin
+
+cardano-cli latest address build \
+--payment-verification-key-file addresses/keys/platform/payment.vkey \
+--stake-verification-key-file addresses/keys/platform/stake.vkey \
+--testnet-magic 2 \
+--out-file addresses/platform.addr
+
+# Build a payment + staking validator address
+cardano-cli latest address build \
+--payment-script-file \
+--stake-script-file \
+--testnet-magic 2 \
+--out-file contract.addr
+
+# Query utxo of a validator address
+cardano-cli latest query utxo \
+--address addr_test1xz7gq954ufeyjyauukacqnnz3cvatgq6ylevupj397pln4ausqtftcnjfyfmeedmsp8x9rse6ksp5fljecr9zturl8ts3j3ypk \
+--socket-path node.socket \
+--testnet-magic 2
+
+# Query utxo of an user address
+cardano-cli latest query utxo \
+--address addr_test1qzxhwhx5ayuhcg6e7xcufy0ta6z5z2q6hwjl8m2r9cmcst0n3lfh3d6a7ege7gepfnhz2gxnm2rsvyd7yngf878k47wqjrmaqk \
+--socket-path node.socket \
+--testnet-magic 2
+
+cardano-cli latest query tip \
+--socket-path node.socket \
+--testnet-magic 2
+
+cardano-cli latest transaction submit \
+--socket-path node.socket \
+--testnet-magic 2 \
+--tx-file transactions/tx.signed
+
+# Borrow transaction
+cardano-cli latest transaction build \
+--socket-path node.socket \
+--testnet-magic 2 \
+--tx-in 3f49a49f0ee189d823a9ee8bb8dff14bdf6f78412e30947eda22ca8b51369b01#0 \
+--tx-in 56d78cf91b0d684f7527395d4ebcca9559788b7dc73e82661cf78672e0255acc#0 \
+--spending-tx-in-reference 8c712cd5242be0c4074cf2fc14b96c6d97c9c12e14f9114ad4eb8637a2849232#0 \
+--spending-plutus-script-v3 \
+--spending-reference-tx-in-inline-datum-present \
+--spending-reference-tx-in-redeemer-cbor-file datum/redeemer.cbor \
+--tx-in-collateral f394d1e3ecb94aad4e029bfd5d720ed1a112473d541c26114351e4e882d9047d#0 \
+--tx-out $(cat addresses/contract.addr)+2000000+"2000 8b05e87a51c1d4a0fa888d2bb14dbc25e8c343ea379a171b63aa84a0.434e4354" \
+--tx-out-inline-datum-cbor-file datum/borrow-datum.cbor \
+--tx-out $(cat addresses/platform.addr)+2000000 \
+--tx-out-inline-datum-cbor-file datum/datum-tag.cbor \
+--change-address $(cat addresses/user.addr) \
+--withdrawal $(cat addresses/stake.addr)+0 \
+--withdrawal-script-file contract.json \
+--withdrawal-redeemer-cbor-file datum/withdraw-redeemer.cbor \
+--out-file transactions/tx.raw
