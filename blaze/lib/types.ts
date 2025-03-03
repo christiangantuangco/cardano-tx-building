@@ -14,10 +14,25 @@ import {
     TokenDetails,
     OutputReference
 } from "./schema";
+import { Address } from "@blaze-cardano/core";
 
 // Levvy Type
 const Tokens = Data.to({ Tokens: Data.Object([]) }, LevvyType);
 const Nfts = Data.to({ Nfts: Data.Object([]) }, LevvyType);
+
+type Collateral = {
+    policyId: string,
+    assetName: string,
+    amount: bigint,
+}
+
+type LoanInput = {
+    lender: Address,
+    amount: bigint,
+    interestAmount: bigint,
+    duration: bigint,
+    collateral: Collateral
+}
 
 export {
     Tokens,
@@ -34,5 +49,6 @@ export {
     BorrowDetails,
     LevvyDatum,
     TokenDetails,
-    OutputReference
+    OutputReference,
+    LoanInput
 }
