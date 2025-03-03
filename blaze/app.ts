@@ -1,6 +1,5 @@
 import {
     Address,
-    addressFromCredential,
     AssetId,
     AssetName,
     Bip32PrivateKey,
@@ -8,7 +7,6 @@ import {
     Credential,
     CredentialType,
     Ed25519KeyHashHex,
-    Hash28ByteBase16,
     HexBlob,
     mnemonicToEntropy,
     NetworkId,
@@ -41,7 +39,8 @@ import {
     OutputIndexes,
     ActionType,
     Action,
-    WithdrawRedeemer
+    WithdrawRedeemer,
+    LoanInput
 } from "./lib/types";
 
 async function main() {
@@ -80,38 +79,48 @@ async function main() {
         hash: script.hash()
     }, NetworkId.Testnet);
 
-    // lend(10_000_000n, 3_000_000n, 74119199n, kupmiosBlaze, kupmiosWallet, validatorAddr);
-    // borrow(blockfrostBlaze, rewardAccount, blockfrostWallet, borrowerAddr, validatorAddr, platformAddr, script);
-    // repay(blockfrostBlaze, rewardAccount, blockfrostWallet, borrowerAddr, script);
-    // foreclose(blockfrostBlaze, rewardAccount, blockfrostWallet, script);
+    // Modify your loan input here
+    const loan: LoanInput = {
+        lender: blockfrostWallet.address,
+        amount: 100_000_000n,
+        interestAmount: 5_000_000n,
+        duration: 74243153n,
+        collateral: {
+            policyId: "8b05e87a51c1d4a0fa888d2bb14dbc25e8c343ea379a171b63aa84a0",
+            assetName: "434e4354",
+            amount: 2_000n
+        }
+    }
+    
+    // lend(loan, blockfrostBlaze, validatorAddr);
+    // borrow(loan, blockfrostBlaze, borrowerAddr, validatorAddr, platformAddr, script);
+    // repay(loan, blockfrostBlaze, script);
+    // foreclose(loan, blockfrostBlaze, script);
 }
 
 // Lock a lend position to smart contract
 async function lend(
-    loanAmount: bigint,
-    interestAmount: bigint,
-    loanDuration: bigint,
+    loan: LoanInput,
     blaze: Blaze<Blockfrost | Kupmios, HotWallet>,
-    ownerWallet: HotWallet,
     validatorAddr: Address
 ) {
     const lendDetails = Data.to({
         lender: Data.to({
-            paymentCredential: Data.to({ keyHash: ownerWallet.address.asBase()?.getPaymentCredential().hash! }, DatumCredential),
+            paymentCredential: Data.to({ keyHash: loan.lender.asBase()?.getPaymentCredential().hash! }, DatumCredential),
             stakeCredential: null
         }, DatumAddress),
         collateralDetails: Data.to({
-            policyId: "8b05e87a51c1d4a0fa888d2bb14dbc25e8c343ea379a171b63aa84a0",
-            assetName: "434e4354",
-            collateralAmount: 2_000n,
+            policyId: loan.collateral.policyId,
+            assetName: loan.collateral.assetName,
+            collateralAmount: loan.collateral.amount,
         }, CollateralDetails),
-        loanAmount,
-        interestAmount,
-        loanDuration,
+        loanAmount: loan.amount,
+        interestAmount: loan.interestAmount,
+        loanDuration: loan.duration,
         levvyType: Tokens,
     }, LendDetails);
 
-    const platformFee = calculatePlatformFee(interestAmount, tokenFeePercent);
+    const platformFee = calculatePlatformFee(loan.interestAmount, tokenFeePercent);
 
     const lendDatum = Data.to({
         LendDatum: { lendDetails }
@@ -121,7 +130,7 @@ async function lend(
         .newTransaction()
         .lockLovelace(
             validatorAddr, 
-            loanAmount + platformFee,
+            loan.amount + platformFee,
             lendDatum
         )
         .complete();
@@ -133,9 +142,8 @@ async function lend(
 
 // Borrow a lend position from Smart Contract
 async function borrow(
-    blaze: Blaze<Blockfrost, HotWallet>,
-    rewardAccount: RewardAccount,
-    ownerWallet: HotWallet, 
+    loan: LoanInput,
+    blaze: Blaze<Blockfrost | Kupmios, HotWallet>,
     borrowerAddr: Address,
     validatorAddr: Address,
     platformAddr: Address,
@@ -144,15 +152,15 @@ async function borrow(
     // Locked Output Reference
     const lockedUtxo = await blaze.provider.resolveUnspentOutputs([
         new TransactionInput(
-            TransactionId("4dade70a2ee0be547ecdeb2114804942c102c07e46df3c155c88af9daf6e54c7"),
+            TransactionId("0e2125de597b5467a69eefc5f053fe86f305bd5ce9be42991742ab6bbaaf64d0"),
             0n
         )
     ]);
 
-    const platformFee = calculatePlatformFee(10_000_000n, tokenFeePercent);
+    const platformFee = calculatePlatformFee(loan.interestAmount, tokenFeePercent);
 
     const outputRef = Data.to({
-        transaction_id: "4dade70a2ee0be547ecdeb2114804942c102c07e46df3c155c88af9daf6e54c7",
+        transaction_id: "0e2125de597b5467a69eefc5f053fe86f305bd5ce9be42991742ab6bbaaf64d0",
         output_index: 0n,
     }, OutputReference);
 
@@ -162,21 +170,21 @@ async function borrow(
 
     const borrowDetails = Data.to({
         lender: Data.to({
-            paymentCredential: Data.to({ keyHash: ownerWallet.address.asBase()?.getPaymentCredential().hash! }, DatumCredential),
-            stakeCredential: null
+            paymentCredential: Data.to({ keyHash: loan.lender.asBase()?.getPaymentCredential().hash! }, DatumCredential),
+            stakeCredential: { Inline: { credential: Data.to({ keyHash: loan.lender.asBase()?.getStakeCredential().hash! }, DatumCredential) } }
         }, DatumAddress),
         borrower: Data.to({
             paymentCredential: Data.to({ keyHash: borrowerAddr.asBase()?.getPaymentCredential().hash! }, DatumCredential),
-            stakeCredential: null
+            stakeCredential: { Inline: { credential: Data.to({ keyHash: borrowerAddr.asBase()?.getStakeCredential().hash! }, DatumCredential) } }
         }, DatumAddress),
         collateralDetails: Data.to({
-            policyId: "8b05e87a51c1d4a0fa888d2bb14dbc25e8c343ea379a171b63aa84a0",
-            assetName: "434e4354",
-            collateralAmount: 2_000n,
+            policyId: loan.collateral.policyId,
+            assetName: loan.collateral.assetName,
+            collateralAmount: loan.collateral.amount,
         }, CollateralDetails),
-        loanAmount: 10000000n,
-        interestAmount: 5000000n,
-        loanEndTime: 74115971n,
+        loanAmount: loan.amount,
+        interestAmount: loan.interestAmount,
+        loanEndTime: loan.duration,
         levvyType: Tokens,
         tag: datumTag
     }, BorrowDetails);
@@ -186,7 +194,7 @@ async function borrow(
     }, LevvyDatum);
 
     const borrowAction = Data.to({
-        inputIndex: 1n,
+        inputIndex: 0n,
         outputIndexes: Data.to({
             selfOutputIndex: 0n,
             feeOutputIndex: 1n,
@@ -197,6 +205,11 @@ async function borrow(
 
     const withdrawRedeemer = Data.to([borrowAction], WithdrawRedeemer);
 
+    const rewardAccount = RewardAccount.fromCredential({
+        type: CredentialType.ScriptHash,
+        hash: script.hash()
+    }, NetworkId.Testnet)
+
     const borrowTx = await blaze
         .newTransaction()
         .addInput(lockedUtxo[0], Data.void())
@@ -205,9 +218,9 @@ async function borrow(
             validatorAddr,
             createValue(
                 2_000_000n,
-                PolicyId("8b05e87a51c1d4a0fa888d2bb14dbc25e8c343ea379a171b63aa84a0"),
-                AssetName("434e4354"),
-                2_000n
+                PolicyId(loan.collateral.policyId),
+                AssetName(loan.collateral.assetName),
+                loan.collateral.amount
             ),
             borrowDatum
         )
@@ -227,31 +240,20 @@ async function borrow(
 
 // Repay the borrowed position to the owner
 async function repay(
-    blaze: Blaze<Blockfrost, HotWallet>,
-    rewardAccount: RewardAccount,
-    ownerWallet: HotWallet,
-    borrowerAddr: Address,
+    loan: LoanInput,
+    blaze: Blaze<Blockfrost | Kupmios, HotWallet>,
     script: Script
 ) {
-    // Owner address of the asset borrowed
-    const ownerAddress = addressFromCredential(
-        NetworkId.Testnet,
-        Credential.fromCore({
-            type: CredentialType.KeyHash,
-            hash: Hash28ByteBase16("8d775cd4e9397c2359f1b1c491ebee8541281abba5f3ed432e37882d")
-        })
-    );
-
     // Locked Output Reference
     const lockedUtxo = await blaze.provider.resolveUnspentOutputs([
         new TransactionInput(
-            TransactionId("3f3a8c1da574b467e63cd5e8d06ac998b10ee4b20be61fbe94c54f8d0fdedaec"),
+            TransactionId("3720e1951f659dfd05f5af59e2da2c40197f6141e89f894ac1940525e61f26d5"),
             0n
         )
     ]);
 
     const outputRef = Data.to({
-        transaction_id: "3f3a8c1da574b467e63cd5e8d06ac998b10ee4b20be61fbe94c54f8d0fdedaec",
+        transaction_id: "3720e1951f659dfd05f5af59e2da2c40197f6141e89f894ac1940525e61f26d5",
         output_index: 0n,
     }, OutputReference);
 
@@ -260,7 +262,7 @@ async function repay(
     )), Data.Bytes());
 
     const repayAction = Data.to({
-        inputIndex: 1n,
+        inputIndex: 0n,
         outputIndexes: Data.to({
             selfOutputIndex: 0n,
             feeOutputIndex: null,
@@ -271,14 +273,19 @@ async function repay(
 
     const withdrawRedeemer = Data.to([repayAction], WithdrawRedeemer)
 
+    const rewardAccount = RewardAccount.fromCredential({
+        type: CredentialType.ScriptHash,
+        hash: script.hash()
+    }, NetworkId.Testnet);
+
     const repayTx = await blaze
         .newTransaction()
         .addInput(lockedUtxo[0], Data.void())
         .addWithdrawal(rewardAccount, 0n, withdrawRedeemer)
-        .addRequiredSigner(Ed25519KeyHashHex(borrowerAddr.asBase()?.getPaymentCredential().hash!))
-        .payLovelace(ownerAddress, 20000000n + 10000000n, datumTag)
+        .addRequiredSigner(Ed25519KeyHashHex(loan.lender.asBase()?.getPaymentCredential().hash!))
+        .payLovelace(loan.lender, loan.amount + loan.interestAmount, datumTag)
         .provideScript(script)
-        .setCollateralChangeAddress(ownerWallet.address)
+        .setCollateralChangeAddress(loan.lender)
         .setValidFrom(Slot(0))
         .complete();
 
@@ -289,25 +296,16 @@ async function repay(
 
 // Foreclose the borrowed position
 async function foreclose(
-    blaze: Blaze<Blockfrost, HotWallet>,
-    rewardAccount: RewardAccount,
-    ownerWallet: HotWallet,
+    loan: LoanInput,
+    blaze: Blaze<Blockfrost | Kupmios, HotWallet>,
     script: Script
 ) {
     const lockedUtxo = await blaze.provider.resolveUnspentOutputs([
         new TransactionInput(
-            TransactionId("918bebfda0c4c74c8e3661394195a093e80541e851969976c05ae84a61c263f5"),
+            TransactionId("ac14bceb3c5762b6e195a9a242433a0c86c5f61d6db1b47fc91e36c708f37084"),
             0n
         )
     ]);
-
-    const lenderAddr = addressFromCredential(
-        NetworkId.Testnet,
-        Credential.fromCore({
-            type: CredentialType.KeyHash,
-            hash: Hash28ByteBase16("8d775cd4e9397c2359f1b1c491ebee8541281abba5f3ed432e37882d")
-        })
-    );
 
     const forecloseAction = Data.to({
         inputIndex: 1n,
@@ -321,18 +319,26 @@ async function foreclose(
 
     const withdrawRedeemer = Data.to([forecloseAction], WithdrawRedeemer);
 
+    const rewardAccount = RewardAccount.fromCredential({
+        type: CredentialType.ScriptHash,
+        hash: script.hash()
+    }, NetworkId.Testnet);
+
     const forecloseTx = await blaze
         .newTransaction()
         .addInput(lockedUtxo[0], Data.void())
         .addWithdrawal(rewardAccount, 0n, withdrawRedeemer)
-        .payAssets(lenderAddr, createValue(
-            2_000_000n, 
-            PolicyId("8b05e87a51c1d4a0fa888d2bb14dbc25e8c343ea379a171b63aa84a0"),
-            AssetName("434e4354"),
-            2_000n
-        ))
-        .setValidFrom(Slot(74115972))
-        .setCollateralChangeAddress(ownerWallet.address)
+        .payAssets(
+            loan.lender,
+            createValue(
+                2_318_780n,
+                PolicyId("8b05e87a51c1d4a0fa888d2bb14dbc25e8c343ea379a171b63aa84a0"),
+                AssetName("434e4354"),
+                2_000n
+            )
+        )
+        .setValidFrom(Slot(Number(loan.duration + 1n)))
+        .setCollateralChangeAddress(loan.lender)
         .provideScript(script)
         .complete();
 

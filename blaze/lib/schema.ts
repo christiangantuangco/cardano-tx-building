@@ -52,7 +52,10 @@ const DatumCredential = DatumCredentialSchema as unknown as DatumCredential;
 
 const DatumAddressSchema = Data.Object({
     paymentCredential: DatumCredential,
-    stakeCredential: Data.Nullable(DatumCredential)
+    stakeCredential: Data.Nullable(Data.Enum([
+        Data.Object({ Inline: Data.Object({ credential: DatumCredential }) }),
+        Data.Object({ Pointer: Data.Object([]) })
+    ]))
 });
 type DatumAddress = Static<typeof DatumAddressSchema>;
 const DatumAddress = DatumAddressSchema as unknown as DatumAddress;
