@@ -22,11 +22,11 @@ cardano-cli latest query utxo \
 # Query utxo of an user address
 cardano-cli latest query utxo \
 --address addr_test1qzxhwhx5ayuhcg6e7xcufy0ta6z5z2q6hwjl8m2r9cmcst0n3lfh3d6a7ege7gepfnhz2gxnm2rsvyd7yngf878k47wqjrmaqk \
---socket-path node.socket \
+--socket-path /Users/gantuangcoc98/.dmtr/tmp/nebulous-audience-903991/preview-ko3j06.socket \
 --testnet-magic 2
 
 cardano-cli latest query tip \
---socket-path node.socket \
+--socket-path /Users/gantuangcoc98/.dmtr/tmp/nebulous-audience-903991/preview-ko3j06.socket \
 --testnet-magic 2
 
 cardano-cli latest transaction submit \
