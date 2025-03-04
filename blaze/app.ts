@@ -82,20 +82,30 @@ async function main() {
     // Modify your loan input here
     const loan: LoanInput = {
         lender: blockfrostWallet.address,
-        amount: 100_000_000n,
-        interestAmount: 5_000_000n,
-        duration: 74243153n,
+        amount: 5_000_000n,
+        interestAmount: 3_000_000n,
+        duration: 74386826n,
         collateral: {
             policyId: "8b05e87a51c1d4a0fa888d2bb14dbc25e8c343ea379a171b63aa84a0",
             assetName: "434e4354",
             amount: 2_000n
         }
     }
-    
-    // lend(loan, blockfrostBlaze, validatorAddr);
+
+    // test();
+    lend(loan, blockfrostBlaze, validatorAddr);
     // borrow(loan, blockfrostBlaze, borrowerAddr, validatorAddr, platformAddr, script);
     // repay(loan, blockfrostBlaze, script);
     // foreclose(loan, blockfrostBlaze, script);
+}
+
+async function test() {
+    const txInput = new TransactionInput(
+        TransactionId("3b6e19bd7cabaa650b4bd5d52d25874d1bf1bc53246cde3d975a0b21b196792b"),
+        0n
+    );
+
+    console.log(txInput.toCbor());
 }
 
 // Lock a lend position to smart contract
@@ -135,9 +145,11 @@ async function lend(
         )
         .complete();
 
-    const signedTx = await blaze.signTransaction(lockTx);
-    const txId = await blaze.provider.postTransactionToChain(signedTx);
-    console.log("Transaction Id", txId);
+    console.log(lockTx.toCbor());
+
+    // const signedTx = await blaze.signTransaction(lockTx);
+    // const txId = await blaze.provider.postTransactionToChain(signedTx);
+    // console.log("Transaction Id", txId);
 }
 
 // Borrow a lend position from Smart Contract

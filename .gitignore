@@ -2,3 +2,5 @@
 **/.env
 **/key-pairs
 **/keys
+**/bin
+**/obj
