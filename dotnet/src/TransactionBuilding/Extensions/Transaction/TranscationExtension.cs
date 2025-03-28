@@ -1,13 +1,9 @@
 using Transaction = TransactionBuilding.Types.Transaction.Transaction;
-using Chrysalis.Cbor.Cardano.Types.Block.Transaction.Input;
-using Chrysalis.Cbor.Cardano.Types.Block.Transaction.Body;
 using TransactionBuilding.Extensions.Transcation.Body;
-using Chrysalis.Cbor.Cardano.Extensions;
-using Chrysalis.Cbor.Types.Custom;
-using Chrysalis.Cbor.Cardano.Types.Block.Transaction.Output;
-using Chrysalis.Cbor.Cardano.Types.Block.Transaction;
-using Chrysalis.Cbor.Cardano.Types.Block.Transaction.WitnessSet;
-using Chrysalis.Cbor.Types.Primitives;
+using Chrysalis.Cbor.Types.Cardano.Core.Transaction;
+using Chrysalis.Cbor.Types;
+using Chrysalis.Cbor.Extensions.Cardano.Core.Transaction.Body;
+using Chrysalis.Cbor.Types.Cardano.Core.TransactionWitness;
 
 namespace TransactionBuilding.Extensions.Transcation;
 

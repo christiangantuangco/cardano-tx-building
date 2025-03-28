@@ -16,6 +16,7 @@ import {
     Script,
     Slot,
     TokenMap,
+    Transaction,
     TransactionId,
     TransactionInput,
     TransactionOutput,
@@ -73,39 +74,46 @@ async function main() {
     const validatorAddr = Address.fromBech32(process.env["VALIDATOR_ADDRESS"]!);
     const platformAddr = Address.fromBech32(process.env["PLATFORM_ADDRESS"]!);
     const borrowerAddr = Address.fromBech32("addr_test1qzxhwhx5ayuhcg6e7xcufy0ta6z5z2q6hwjl8m2r9cmcst0n3lfh3d6a7ege7gepfnhz2gxnm2rsvyd7yngf878k47wqjrmaqk");
+    const receiverAddr = Address.fromBech32("addr_test1qqd86cnx53kdhyhwyu9czgmhkuucyevhp2ez7vxu3zkfa5vudpnr948a9kje6sqqqe5ear3wq260zns6q9ketpfl3jwq4vhh0k");
 
     const rewardAccount = RewardAccount.fromCredential({
         type: CredentialType.ScriptHash,
         hash: script.hash()
     }, NetworkId.Testnet);
 
+    console.log(RewardAccount.toHash(rewardAccount));
+
     // Modify your loan input here
     const loan: LoanInput = {
-        lender: blockfrostWallet.address,
+        lender: kupmiosWallet.address,
         amount: 5_000_000n,
         interestAmount: 3_000_000n,
         duration: 74386826n,
         collateral: {
             policyId: "8b05e87a51c1d4a0fa888d2bb14dbc25e8c343ea379a171b63aa84a0",
             assetName: "434e4354",
-            amount: 2_000n
+            amount: 3_000n
         }
     }
 
-    // test();
-    lend(loan, blockfrostBlaze, validatorAddr);
+    // console.log(kupmiosWallet.address.toBech32())
+    // await sendLovelace(blockfrostBlaze, receiverAddr);
+    // lend(loan, kupmiosBlaze, validatorAddr);
     // borrow(loan, blockfrostBlaze, borrowerAddr, validatorAddr, platformAddr, script);
     // repay(loan, blockfrostBlaze, script);
     // foreclose(loan, blockfrostBlaze, script);
 }
 
-async function test() {
-    const txInput = new TransactionInput(
-        TransactionId("3b6e19bd7cabaa650b4bd5d52d25874d1bf1bc53246cde3d975a0b21b196792b"),
-        0n
-    );
+async function sendLovelace(blaze: Blaze<Blockfrost | Kupmios, HotWallet>, receiverAddress: Address) {
+    const sendLovelaceTx = await blaze
+        .newTransaction()
+        .payLovelace(receiverAddress, 5_000_000n)
+        .complete();
 
-    console.log(txInput.toCbor());
+    const signedTx = await blaze.signTransaction(sendLovelaceTx);
+    // console.log(signedTx.toCbor());
+    const txId = await blaze.provider.postTransactionToChain(signedTx);
+    console.log("Transaction Id", txId);
 }
 
 // Lock a lend position to smart contract
@@ -145,11 +153,9 @@ async function lend(
         )
         .complete();
 
-    console.log(lockTx.toCbor());
-
-    // const signedTx = await blaze.signTransaction(lockTx);
-    // const txId = await blaze.provider.postTransactionToChain(signedTx);
-    // console.log("Transaction Id", txId);
+    const signedTx = await blaze.signTransaction(lockTx);
+    const txId = await blaze.provider.postTransactionToChain(signedTx);
+    console.log("Transaction Id", txId);
 }
 
 // Borrow a lend position from Smart Contract

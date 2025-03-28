@@ -1,8 +1,8 @@
-﻿using Chrysalis.Cbor.Cardano.Types.Block.Transaction.Input;
-using Chrysalis.Cbor.Cardano.Types.Block.Transaction.Output;
-using Chrysalis.Cbor.Types.Primitives;
+﻿using Chrysalis.Cbor.Serialization;
+using Chrysalis.Cbor.Types.Cardano.Core.Common;
+using Chrysalis.Cbor.Types.Cardano.Core.Transaction;
 using TransactionBuilding.Extensions.Transcation;
-using TransactionBuilding.Types.Transaction;
+using Transaction = TransactionBuilding.Types.Transaction.Transaction;
 
 Address senderAddress = new(Convert.FromHexString("008d775cd4e9397c2359f1b1c491ebee8541281abba5f3ed432e37882df38fd378b75df6519f23214cee2520d3da870611be24d093f8f6af9c"));
 Address receiverAddress = new(Convert.FromHexString("001a7d6266a46cdb92ee270b812377b7398265970ab22f30dc88ac9ed19c686632d4fd2da59d400006699e8e2e02b4f14e1a016d95853f8c9c"));
@@ -13,7 +13,7 @@ TransactionInput input1 = new(
     new CborUlong(3)
 );
 
-PostAlonzoTransactionOutput output1 = new PostAlonzoTransactionOutput(
+PostAlonzoTransactionOutput output1 = new(
     receiverAddress,
     lovelace,
     null,
@@ -35,4 +35,29 @@ Transaction tx = new Transaction()
     .AddOutput(changeOutput)
     .SetFee(fee);
 
-Console.WriteLine(Convert.ToHexString(tx.Bytes));
+CborDefListWithTag<TransactionInput> inputsWithTag = new([input1]);
+Console.WriteLine(Convert.ToHexString(CborSerializer.Serialize(inputsWithTag)));
+
+ConwayTransactionBody conwayTxBody = new(
+    inputsWithTag,
+    new CborDefList<TransactionOutput>([output1]),
+    new(2_000_000),
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+);
+Console.WriteLine(Convert.ToHexString(CborSerializer.Serialize(conwayTxBody)));
