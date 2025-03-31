@@ -106,6 +106,34 @@ const OutputReferenceSchema = Data.Object({
 type OutputReference = Static<typeof OutputReferenceSchema>;
 const OutputReference = OutputReferenceSchema as unknown as OutputReference;
 
+const AlwaysTrueActionSchema = Data.Enum([
+    Data.Object({ Swap: Data.Object([]) }),
+    Data.Object({ Cancel: Data.Object([]) })
+]);
+type AlwaysTrueAction = Static<typeof AlwaysTrueActionSchema>;
+const AlwaysTrueAction = AlwaysTrueActionSchema as unknown as AlwaysTrueAction;
+
+const AlwaysTrueIndexesSchema = Data.Object({
+    inputIndex: Data.Integer(),
+    outputIndex: Data.Nullable(Data.Integer()),
+    feeIndex: Data.Integer()
+});
+type AlwaysTrueIndexes = Static<typeof AlwaysTrueIndexesSchema>;
+const AlwaysTrueIndexes = AlwaysTrueIndexesSchema as unknown as AlwaysTrueIndexes;
+
+const AlwaysTrueTupleSchema = Data.Tuple([
+    AlwaysTrueAction,
+    AlwaysTrueIndexes
+]);
+type AlwaysTrueTuple = Static<typeof AlwaysTrueTupleSchema>;
+const AlwaysTrueTuple = AlwaysTrueTupleSchema as unknown as AlwaysTrueTuple;
+
+const AlwaysTrueWithdrawRedeemerSchema = Data.Object({
+    operation: Data.Array(AlwaysTrueTuple)
+});
+type AlwaysTrueWithdrawRedeemer = Static<typeof AlwaysTrueWithdrawRedeemerSchema>;
+const AlwaysTrueWithdrawRedeemer = AlwaysTrueWithdrawRedeemerSchema as unknown as AlwaysTrueWithdrawRedeemer;
+
 export {
     LevvyType,
     OutputIndexes,
@@ -119,5 +147,9 @@ export {
     BorrowDetails,
     LevvyDatum,
     TokenDetails,
-    OutputReference
+    OutputReference,
+    AlwaysTrueAction,
+    AlwaysTrueIndexes,
+    AlwaysTrueTuple,
+    AlwaysTrueWithdrawRedeemer
 }
