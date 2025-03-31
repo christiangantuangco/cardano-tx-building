@@ -26,73 +26,82 @@ PrivateKey privateKey = accountKey
 var provider = new Blockfrost("previewajMhMPYerz9Pd3GsqjayLwP5mgnNnZCC");
 
 string ownerAddress = "addr_test1qzxhwhx5ayuhcg6e7xcufy0ta6z5z2q6hwjl8m2r9cmcst0n3lfh3d6a7ege7gepfnhz2gxnm2rsvyd7yngf878k47wqjrmaqk";
-string validatorAddress = "addr_test1xz7gq954ufeyjyauukacqnnz3cvatgq6ylevupj397pln4ausqtftcnjfyfmeedmsp8x9rse6ksp5fljecr9zturl8ts3j3ypk";
-string withdrawalAddress = "stake_test17z7gq954ufeyjyauukacqnnz3cvatgq6ylevupj397pln4cutpxss";
+string validatorAddress = "addr_test1wpxrfjfkvygq6jwut35n4tm58q75zjavm3fvrs0ql8l8cqg3le8tk";
+string withdrawalAddress = "stake_test17pxrfjfkvygq6jwut35n4tm58q75zjavm3fvrs0ql8l8cqg3h8luu";
 
-Action<Dictionary<int, Dictionary<string, int>>, CancelParameter, Dictionary<RedeemerKey, RedeemerValue>> redeemerBuilder =
+Action<Dictionary<int, Dictionary<string, int>>, SwapParameters, Dictionary<RedeemerKey, RedeemerValue>> redeemerBuilder =
     (inputOutputAssosciations, parameters, redeemers) =>
     {
-        List<PlutusData> actions = [];
+        List<PlutusData> operations = [];
         foreach (var assoc in inputOutputAssosciations)
         {
-            List<PlutusData> outputIndicesData = [];
-            foreach (var outputIndex in assoc.Value)
+            try
             {
-                outputIndicesData.Add(new PlutusInt64(outputIndex.Value));
-            }
-            PlutusConstr outputIndicesPlutusData = new(outputIndicesData)
-            {
-                ConstrIndex = 121
-            };
-            PlutusConstr actionPlutusData = new([new PlutusInt64(assoc.Key), outputIndicesPlutusData])
-            {
-                ConstrIndex = 124
-            };
-            actions.Add(actionPlutusData);
+                var indicesList = assoc.Value.Values.ToArray();
+
+                List<PlutusData> indicesData = [];
+                indicesData.Add(new PlutusInt64(indicesList[0]));
+                indicesData.Add(new PlutusConstr([new PlutusInt64(indicesList[1])])
+                {
+                    ConstrIndex = 121
+                });
+                indicesData.Add(new PlutusInt64(indicesList[2]));
+
+                PlutusConstr indices = new(indicesData)
+                {
+                    ConstrIndex = 121
+                };
+
+                PlutusList innerList = new([new PlutusConstr([]){ ConstrIndex = 121 }, indices]);
+                PlutusList outerList = new([innerList]);
+
+                operations.Add(outerList);
+            } 
+            catch {}
         }
-        PlutusList withdrawRedeemer = new(actions)
+        PlutusConstr withdrawRedeemer = new(operations)
         {
             ConstrIndex = 121
         };
         redeemers.Add(new RedeemerKey(3, 0), new RedeemerValue(withdrawRedeemer, new ExUnits(1400000, 100000000)));
     };
 
-var unlockTx = TransactionTemplateBuilder<CancelParameter>.Create(provider)
+var swapTx = TransactionTemplateBuilder<SwapParameters>.Create(provider)
     .AddStaticParty("tan", ownerAddress, true)
     .AddStaticParty("validator", validatorAddress)
     .AddStaticParty("withdrawal", withdrawalAddress)
     .AddInput((options, unlockParams) =>
     {
         options.From = "validator";
-        options.UtxoRef = unlockParams.ScriptRefUtxoOutref;
-        options.IsReference = true;
+        options.UtxoRef = unlockParams.LockedUtxoOutRef;
+        options.Redeemer = unlockParams.SpendRedeemer;
+        options.Id = "swap";
     })
     .AddInput((options, unlockParams) =>
     {
         options.From = "validator";
-        options.UtxoRef = unlockParams.LockedUtxoOutRef;
-        options.Redeemer = unlockParams.Redeemer;
-        options.Id = "cancel";
+        options.UtxoRef = unlockParams.ScriptRefUtxoOutref;
+        options.IsReference = true;
     })
-    .AddOutput((options, unlockParams) =>
+    .AddOutput((options, cancelParams) =>
     {
         options.To = "tan";
-        options.Amount = unlockParams.MainAmount;
-        options.AssociatedInputId = "cancel";
+        options.Amount = cancelParams.MainAmount;
+        options.AssociatedInputId = "swap";
         options.Id = "main";
     })
     .AddOutput((options, unlockParams) =>
     {
         options.To = "tan";
         options.Amount = unlockParams.FeeAmount;
-        options.AssociatedInputId = "cancel";
+        options.AssociatedInputId = "swap";
         options.Id = "fee";
     })
     .AddOutput((options, unlockParams) =>
     {
         options.To = "tan";
         options.Amount = unlockParams.ChangeAmount;
-        options.AssociatedInputId = "cancel";
+        options.AssociatedInputId = "swap";
         options.Id = "change";
     })
     .AddWithdrawal((options, unlockParams) =>
@@ -103,31 +112,28 @@ var unlockTx = TransactionTemplateBuilder<CancelParameter>.Create(provider)
     })
     .Build();
 
-PlutusConstr plutusConstr = new([])
-{
-    ConstrIndex = 121
-};
-
 var spendRedeemerKey = new RedeemerKey(0, 1);
-var spendRedeemerValue = new RedeemerValue(plutusConstr, new ExUnits(1400000, 100000000));
-
-var withdrawRedeemerKey = new RedeemerKey(3, 0);
-var withdrawRedeemerValue = new RedeemerValue(plutusConstr, new ExUnits(140000000, 10000000000));
-
-string lockTxHash = "e6373cf224644c2bd3c043c933c9e8fe4f4c994db051e98acb03fe21d8ccb7a8";
-string scriptRefTxHash = "8c712cd5242be0c4074cf2fc14b96c6d97c9c12e14f9114ad4eb8637a2849232";
-
-CancelParameter unlockParams = new(
-    new TransactionInput(Convert.FromHexString(lockTxHash), 0),
-    new TransactionInput(Convert.FromHexString(scriptRefTxHash), 0),
-    new RedeemerMap(new Dictionary<RedeemerKey, RedeemerValue> { { spendRedeemerKey, spendRedeemerValue } }),
-    MainAmount: new Lovelace(5_375_000),
-    FeeAmount: new Lovelace(3_000_000),
-    ChangeAmount: new Lovelace(5_000_000),
-    0,
-   new RedeemerMap(new Dictionary<RedeemerKey, RedeemerValue> { { withdrawRedeemerKey, withdrawRedeemerValue } })
+var spendRedeemerValue = new RedeemerValue(
+    new PlutusConstr([])
+    {
+        ConstrIndex = 121
+    },
+    new ExUnits(1400000, 100000000)
 );
 
-PostMaryTransaction unsignedCancelTx = await unlockTx(unlockParams);
-PostMaryTransaction signedCancelTx = unsignedCancelTx.Sign(privateKey);
-Console.WriteLine(Convert.ToHexString(CborSerializer.Serialize(signedCancelTx)));
+string lockTxHash = "d8c659063d32ec684379c04b57128a9393fd6c40aed7d52764faa85d47d8304c";
+string scriptRefTxHash = "91970ac10b0d6e28f399619bcfddca4c0dce76f893aeaa48777f3316ad859a18";
+
+SwapParameters swapParams = new(
+    LockedUtxoOutRef: new TransactionInput(Convert.FromHexString(lockTxHash), 0),
+    ScriptRefUtxoOutref: new TransactionInput(Convert.FromHexString(scriptRefTxHash), 0),
+    SpendRedeemer: new RedeemerMap(new Dictionary<RedeemerKey, RedeemerValue> { { spendRedeemerKey, spendRedeemerValue } }),
+    MainAmount: new Lovelace(6_000_000),
+    ChangeAmount: new Lovelace(5_000_000),
+    FeeAmount: new Lovelace(1_000_000),
+    0
+);
+
+PostMaryTransaction unsignedSwapTx = await swapTx(swapParams);
+PostMaryTransaction signedSwapTx = unsignedSwapTx.Sign(privateKey);
+Console.WriteLine(Convert.ToHexString(CborSerializer.Serialize(signedSwapTx)));

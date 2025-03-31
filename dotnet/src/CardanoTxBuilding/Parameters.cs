@@ -4,11 +4,12 @@ using Chrysalis.Cbor.Types.Cardano.Core.TransactionWitness;
 
 namespace CardanoTxBuilding;
 
-public record CancelParameter(
+public record SwapParameters(
     TransactionInput LockedUtxoOutRef,
     TransactionInput ScriptRefUtxoOutref,
-    RedeemerMap Redeemer, Value MainAmount,
-    Value FeeAmount, Value ChangeAmount,
-    ulong WithdrawalAmount,
-    RedeemerMap WithdrawRedeemer
+    RedeemerMap SpendRedeemer,
+    Value MainAmount,
+    Value ChangeAmount,
+    Value FeeAmount,
+    ulong WithdrawalAmount
 );
