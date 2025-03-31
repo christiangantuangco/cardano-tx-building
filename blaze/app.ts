@@ -1,5 +1,6 @@
 import {
     Address,
+    addressFromValidator,
     AssetId,
     AssetName,
     Bip32PrivateKey,
@@ -24,7 +25,7 @@ import {
     wordlist,
 } from "@blaze-cardano/core";
 import { Unwrapped } from "@blaze-cardano/ogmios";
-import { HotWallet, Blaze, Data, Blockfrost, Kupmios, Wallet } from "@blaze-cardano/sdk";
+import { HotWallet, Blaze, Data, Blockfrost, Kupmios } from "@blaze-cardano/sdk";
 import dotenv from 'dotenv';
 import { calculatePlatformFee, createValue, tokenFeePercent } from "./lib/utils"
 import {
@@ -41,8 +42,9 @@ import {
     ActionType,
     Action,
     WithdrawRedeemer,
-    LoanInput
+    LoanInput,
 } from "./lib/types";
+import { AlwaysTrueAction, AlwaysTrueIndexes, AlwaysTrueTuple, AlwaysTrueWithdrawRedeemer } from "./lib/schema";
 
 async function main() {
     dotenv.config();
@@ -71,10 +73,12 @@ async function main() {
         HexBlob(process.env["COMPILED_CODE"]!)
     ));
 
-    const validatorAddr = Address.fromBech32(process.env["VALIDATOR_ADDRESS"]!);
-    const platformAddr = Address.fromBech32(process.env["PLATFORM_ADDRESS"]!);
-    const borrowerAddr = Address.fromBech32("addr_test1qzxhwhx5ayuhcg6e7xcufy0ta6z5z2q6hwjl8m2r9cmcst0n3lfh3d6a7ege7gepfnhz2gxnm2rsvyd7yngf878k47wqjrmaqk");
-    const receiverAddr = Address.fromBech32("addr_test1qqd86cnx53kdhyhwyu9czgmhkuucyevhp2ez7vxu3zkfa5vudpnr948a9kje6sqqqe5ear3wq260zns6q9ketpfl3jwq4vhh0k");
+    console.log(script.hash());
+
+    const validatorAddress = addressFromValidator(NetworkId.Testnet, script);
+    const platformAddress = Address.fromBech32(process.env["PLATFORM_ADDRESS"]!);
+    const borrowerAddress = Address.fromBech32("addr_test1qzxhwhx5ayuhcg6e7xcufy0ta6z5z2q6hwjl8m2r9cmcst0n3lfh3d6a7ege7gepfnhz2gxnm2rsvyd7yngf878k47wqjrmaqk");
+    const receiverAddress = Address.fromBech32("addr_test1qqd86cnx53kdhyhwyu9czgmhkuucyevhp2ez7vxu3zkfa5vudpnr948a9kje6sqqqe5ear3wq260zns6q9ketpfl3jwq4vhh0k");
 
     const rewardAccount = RewardAccount.fromCredential({
         type: CredentialType.ScriptHash,
@@ -96,12 +100,71 @@ async function main() {
         }
     }
 
-    // console.log(kupmiosWallet.address.toBech32())
-    // await sendLovelace(blockfrostBlaze, receiverAddr);
-    // lend(loan, kupmiosBlaze, validatorAddr);
-    // borrow(loan, blockfrostBlaze, borrowerAddr, validatorAddr, platformAddr, script);
-    // repay(loan, blockfrostBlaze, script);
-    // foreclose(loan, blockfrostBlaze, script);
+    // await deployScriptToContract(kupmiosBlaze, script, validatorAddress);
+    // await registerCredential(kupmiosBlaze, script);
+    // await sendLovelace(blockfrostBlaze, receiverAddress);
+    // await lend(loan, kupmiosBlaze, validatorAddress);
+    // await borrow(loan, blockfrostBlaze, borrowerAddress, validatorAddress, platformAddress, script);
+    // await repay(loan, blockfrostBlaze, script);
+    // await foreclose(loan, blockfrostBlaze, script);
+
+    // // await lockTx(kupmiosBlaze, validatorAddress);
+    // // await swapTx(kupmiosBlaze, rewardAccount);
+}
+
+async function lockTx(blaze: Blaze<Blockfrost | Kupmios, HotWallet>, validatorAddress: Address) {
+    const lockTx = await blaze
+        .newTransaction()
+        .lockLovelace(validatorAddress, 6_000_000n, Data.void())
+        .complete();
+
+    const signedTx = await blaze.signTransaction(lockTx);
+    const txId = await blaze.provider.postTransactionToChain(signedTx);
+    console.log("Transaction Id", txId);
+}
+
+async function swapTx(
+    blaze: Blaze<Blockfrost | Kupmios, HotWallet>,
+    rewardAccount: RewardAccount
+) {
+    const lockedUtxo = await blaze.provider.resolveUnspentOutputs([
+        new TransactionInput(
+            TransactionId("d8c659063d32ec684379c04b57128a9393fd6c40aed7d52764faa85d47d8304c"),
+            0n
+        )
+    ]);
+
+    const scriptRef = await blaze.provider.resolveUnspentOutputs([
+        new TransactionInput(
+            TransactionId("91970ac10b0d6e28f399619bcfddca4c0dce76f893aeaa48777f3316ad859a18"),
+            0n
+        )
+    ]);
+
+    const action = Data.to({
+        Swap: Data.Object([])
+    }, AlwaysTrueAction);
+
+    const indexes = Data.to({
+        inputIndex: 0n,
+        outputIndex: 0n,
+        feeIndex: 0n
+    }, AlwaysTrueIndexes);
+
+    const tuple = Data.to([action, indexes], AlwaysTrueTuple);
+
+    const withdrawRedeemer = Data.to({
+        operation: [tuple]
+    }, AlwaysTrueWithdrawRedeemer)
+
+    const swapTx = await blaze
+        .newTransaction()
+        .addInput(lockedUtxo[0], Data.void())
+        .addReferenceInput(scriptRef[0])
+        .addWithdrawal(rewardAccount, 0n, withdrawRedeemer)
+        .complete();
+
+    console.log(swapTx.toCbor());
 }
 
 async function sendLovelace(blaze: Blaze<Blockfrost | Kupmios, HotWallet>, receiverAddress: Address) {
