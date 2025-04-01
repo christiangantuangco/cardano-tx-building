@@ -106,6 +106,13 @@ const OutputReferenceSchema = Data.Object({
 type OutputReference = Static<typeof OutputReferenceSchema>;
 const OutputReference = OutputReferenceSchema as unknown as OutputReference;
 
+const TokenSwapDatumSchema = Data.Object({
+    owner: DatumAddress,
+    token: TokenDetails
+});
+type TokenSwapDatum = Static<typeof TokenSwapDatumSchema>;
+const TokenSwapDatum = TokenSwapDatumSchema as unknown as TokenSwapDatum;
+
 const AlwaysTrueActionSchema = Data.Enum([
     Data.Object({ Swap: Data.Object([]) }),
     Data.Object({ Cancel: Data.Object([]) })
@@ -148,6 +155,7 @@ export {
     LevvyDatum,
     TokenDetails,
     OutputReference,
+    TokenSwapDatum,
     AlwaysTrueAction,
     AlwaysTrueIndexes,
     AlwaysTrueTuple,
