@@ -1,7 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\..\SAIB\Chrysalis\src\Chrysalis.Tx\Chrysalis.Tx.csproj" />
+    <ProjectReference Include="..\..\..\..\..\SAIB\Chrysalis\src\Chrysalis.Cbor.CodeGen\Chrysalis.Cbor.CodeGen.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\..\..\..\SAIB\Chrysalis\src\Chrysalis.Cbor\Chrysalis.Cbor.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
