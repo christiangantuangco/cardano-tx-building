@@ -1,12 +1,14 @@
 ﻿using CardanoTxBuilding;
 using CardanoTxBuilding.Data.Extensions;
 using Chrysalis.Cbor.Serialization;
+using Chrysalis.Cbor.Types;
 using Chrysalis.Cbor.Types.Cardano.Core.Common;
 using Chrysalis.Cbor.Types.Cardano.Core.Protocol;
 using Chrysalis.Cbor.Types.Cardano.Core.Transaction;
 using Chrysalis.Cbor.Types.Cardano.Core.TransactionWitness;
 using Chrysalis.Tx.Builders;
 using Chrysalis.Tx.Extensions;
+using Chrysalis.Tx.Models;
 using Chrysalis.Tx.Providers;
 using Chrysalis.Wallet.Models.Enums;
 using Chrysalis.Wallet.Models.Keys;
@@ -41,44 +43,23 @@ Console.WriteLine(txCbor);
 
 async Task<string> SwapTransaction()
 {
-    Action<Dictionary<int, Dictionary<string, int>>, SwapParameters, Dictionary<RedeemerKey, RedeemerValue>> swapRedeemerBuilder =
-        (inputOutputAssosciations, parameters, redeemers) =>
+    Action<InputOutputMapping, SwapParameters, Redeemer<CborBase>> swapRedeemerBuilder =
+        (inputOutputAssosciations, parameters, redeemer) =>
         {
-            List<PlutusData> operations = [];
-            foreach (KeyValuePair<int, Dictionary<string, int>> assoc in inputOutputAssosciations)
-            {
-                try
-                {
-                    int[] indicesList = [.. assoc.Value.Values];
-
-                    List<PlutusData> indicesData = [];
-                    indicesData.Add(new PlutusInt64(indicesList[0]));
-                    indicesData.Add(new PlutusConstr([new PlutusInt64(indicesList[1])])
-                    {
-                        ConstrIndex = 121
-                    });
-                    indicesData.Add(new PlutusInt64(indicesList[2]));
-
-                    PlutusConstr indices = new(indicesData)
-                    {
-                        ConstrIndex = 121
-                    };
-
-                    PlutusList innerList = new([new PlutusConstr([]){ ConstrIndex = parameters.Action.GetActionType() }, indices]);
-                    PlutusList outerList = new([innerList]);
-
-                    operations.Add(outerList);
-                } 
-                catch {}
-            }
-            PlutusConstr withdrawRedeemer = new(operations)
-            {
-                ConstrIndex = 121
-            };
-            redeemers.Add(new RedeemerKey(3, 0), new RedeemerValue(withdrawRedeemer, new ExUnits(1400000, 100000000)));
         };
 
-    Func<SwapParameters, Task<PostMaryTransaction>> swapTx = TransactionTemplateBuilder<SwapParameters>.Create(provider)
+    PlutusConstr plutusConstr = new([])
+    {
+        ConstrIndex = 121
+    };
+
+    RedeemerKey withdrawRedeemerKey = new(3, 0);
+    RedeemerValue withdrawRedeemerValue = new(
+        plutusConstr, 
+        new ExUnits(1400000, 100000000
+    ));
+
+    Func<SwapParameters, Task<Transaction>> swapTx = TransactionTemplateBuilder<SwapParameters>.Create(provider)
         .AddStaticParty("tan", ownerAddress, true)
         .AddStaticParty("validator", validatorAddress)
         .AddStaticParty("withdrawal", withdrawalAddress)
@@ -120,7 +101,9 @@ async Task<string> SwapTransaction()
         {
             options.From = "withdrawal";
             options.Amount = swapParams.WithdrawalAmount;
-            options.RedeemerBuilder = swapRedeemerBuilder;
+            options.Redeemer = new RedeemerMap(
+                new Dictionary<RedeemerKey, RedeemerValue> { { withdrawRedeemerKey, withdrawRedeemerValue } }
+            );
         })
         .Build();
 
@@ -143,8 +126,8 @@ async Task<string> SwapTransaction()
         0
     );
 
-    PostMaryTransaction unsignedSwapTx = await swapTx(swapParams);
-    PostMaryTransaction signedSwapTx = unsignedSwapTx.Sign(privateKey);
+    Transaction unsignedSwapTx = await swapTx(swapParams);
+    Transaction signedSwapTx = unsignedSwapTx.Sign(privateKey);
     return Convert.ToHexString(CborSerializer.Serialize(signedSwapTx));
 }
 
@@ -218,7 +201,7 @@ async Task<string> CancelTransaction()
         new ExUnits(1400000, 100000000)
     );
 
-    Func<CancelParameters, Task<PostMaryTransaction>> cancelTx = TransactionTemplateBuilder<CancelParameters>.Create(provider)
+    Func<CancelParameters, Task<Transaction>> cancelTx = TransactionTemplateBuilder<CancelParameters>.Create(provider)
         .AddStaticParty("tan", ownerAddress, true)
         .AddStaticParty("fee", feeAddress)
         .AddStaticParty("validator", validatorAddress)
@@ -245,11 +228,12 @@ async Task<string> CancelTransaction()
             options.To = "fee";
             options.Amount = cancelParams.FeeAmount;
         })
+        .AddRequiredSigner("tan")
         .AddWithdrawal((options, cancelParams) =>
         {
             options.From = "withdrawal";
             options.Amount = cancelParams.WithdrawalAmount;
-            options.Redeemers = cancelParams.WithdrawRedeemer;
+            options.Redeemer = cancelParams.WithdrawRedeemer;
         })
         .Build();
 
@@ -276,7 +260,7 @@ async Task<string> CancelTransaction()
         )
     );
 
-    PostMaryTransaction unsignedCancelTx = await cancelTx(cancelParams);
-    PostMaryTransaction signedCancelTx = unsignedCancelTx.Sign(privateKey);
+    Transaction unsignedCancelTx = await cancelTx(cancelParams);
+    Transaction signedCancelTx = unsignedCancelTx.Sign(privateKey);
     return Convert.ToHexString(CborSerializer.Serialize(signedCancelTx));
 }
