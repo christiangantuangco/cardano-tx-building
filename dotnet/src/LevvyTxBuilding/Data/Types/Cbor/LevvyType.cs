@@ -1,7 +1,7 @@
 using Chrysalis.Cbor.Serialization.Attributes;
 using Chrysalis.Cbor.Types;
 
-namespace LevvyTxBuilding.Data.Types;
+namespace LevvyTxBuilding.Data.Types.Cbor;
 
 [CborSerializable]
 [CborUnion]
