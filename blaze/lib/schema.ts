@@ -106,6 +106,67 @@ const OutputReferenceSchema = Data.Object({
 type OutputReference = Static<typeof OutputReferenceSchema>;
 const OutputReference = OutputReferenceSchema as unknown as OutputReference;
 
+const LevvyV2LendDetailsSchema = Data.Object({
+    adaOwner: DatumAddress,
+    policyId: Data.Bytes(),
+    assetName: Data.Bytes(),
+    tokenAmount: Data.Integer(),
+    loanAmount: Data.Integer(),
+    interestAmount: Data.Integer(),
+    loanDuration: Data.Integer(),
+    outputReference: OutputReference,
+});
+type LevvyV2LendDetails = Static<typeof LevvyV2LendDetailsSchema>;
+const LevvyV2LendDetails = LevvyV2LendDetailsSchema as unknown as LevvyV2LendDetails;
+
+const LevvyV2BorrowDetailsSchema = Data.Object({
+    adaOwner: DatumAddress,
+    assetOwner: DatumAddress,
+    policyId: Data.Bytes(),
+    assetName: Data.Bytes(),
+    tokenAmount: Data.Integer(),
+    loanAmount: Data.Integer(),
+    interestAmount: Data.Integer(),
+    loanEndTime: Data.Integer(),
+    outputReference: OutputReference,
+});
+type LevvyV2BorrowDetails = Static<typeof LevvyV2BorrowDetailsSchema>;
+const LevvyV2BorrowDetails = LevvyV2BorrowDetailsSchema as unknown as LevvyV2BorrowDetails;
+
+const LevvyV2RepayDetailsSchema = Data.Object({
+    adaOwner: DatumAddress,
+    tokenAmount: Data.Integer(),
+    loanAmount: Data.Integer(),
+    interestAmount: Data.Integer(),
+    outputReference: OutputReference,
+});
+type LevvyV2RepayDetails = Static<typeof LevvyV2RepayDetailsSchema>;
+const LevvyV2RepayDetails = LevvyV2RepayDetailsSchema as unknown as LevvyV2RepayDetails;
+
+const LevvyV2TokenDatumSchema = Data.Enum([
+    Data.Object({ LendTokenDatum: Data.Object({ lendTokenDetails: LevvyV2LendDetails }) }),
+    Data.Object({ BorrowTokenDatum: Data.Object({ borrowTokenDetails: LevvyV2BorrowDetails }) }),
+    Data.Object({ RepayTokenDatum: Data.Object({ repayTokenDetails: LevvyV2RepayDetails }) })
+]);
+type LevvyV2TokenDatum = Static<typeof LevvyV2TokenDatumSchema>;
+const LevvyV2TokenDatum = LevvyV2TokenDatumSchema as unknown as LevvyV2TokenDatum;
+
+const LevvyV2TokenActionSchema = Data.Enum([
+    Data.Object({ BorrowTokenAction: Data.Object([]) }),
+    Data.Object({ RepayTokenAction: Data.Object([]) }),
+    Data.Object({ ClaimTokenAction: Data.Object([]) }),
+    Data.Object({ ForecloseTokenAction: Data.Object([]) }),
+    Data.Object({ CancelTokenAction: Data.Object([]) }),
+]);
+type LevvyV2TokenAction = Static<typeof LevvyV2TokenActionSchema>;
+const LevvyV2TokenAction = LevvyV2TokenActionSchema as unknown as LevvyV2TokenAction;
+
+const LevvyV2PaymentDatumSchema = Data.Object({
+    outputReference: OutputReference,
+});
+type LevvyV2PaymentDatum = Static<typeof LevvyV2PaymentDatumSchema>;
+const LevvyV2PaymentDatum = LevvyV2PaymentDatumSchema as unknown as LevvyV2PaymentDatum;
+
 const TokenSwapDatumSchema = Data.Object({
     owner: DatumAddress,
     token: TokenDetails
@@ -159,5 +220,11 @@ export {
     AlwaysTrueAction,
     AlwaysTrueIndexes,
     AlwaysTrueTuple,
-    AlwaysTrueWithdrawRedeemer
+    AlwaysTrueWithdrawRedeemer,
+    LevvyV2LendDetails,
+    LevvyV2BorrowDetails,
+    LevvyV2RepayDetails,
+    LevvyV2TokenDatum,
+    LevvyV2TokenAction,
+    LevvyV2PaymentDatum
 }
