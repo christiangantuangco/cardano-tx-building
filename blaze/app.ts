@@ -1,6 +1,5 @@
 import {
     Address,
-    addressFromCredentials,
     addressFromValidator,
     AssetId,
     AssetName,
@@ -9,8 +8,6 @@ import {
     Credential,
     CredentialType,
     Ed25519KeyHashHex,
-    Hash28ByteBase16,
-    Hash32ByteBase16,
     HexBlob,
     mnemonicToEntropy,
     NetworkId,
@@ -24,6 +21,7 @@ import {
     TransactionId,
     TransactionInput,
     TransactionOutput,
+    TxCBOR,
     Value,
     wordlist,
 } from "@blaze-cardano/core";
@@ -47,7 +45,7 @@ import {
     WithdrawRedeemer,
     LoanInput,
 } from "./lib/types";
-import { AlwaysTrueAction, AlwaysTrueIndexes, AlwaysTrueTuple, AlwaysTrueWithdrawRedeemer, TokenDetails, TokenSwapDatum } from "./lib/schema";
+import { AlwaysTrueAction, AlwaysTrueIndexes, AlwaysTrueTuple, AlwaysTrueWithdrawRedeemer, LevvyV2BorrowDetails, LevvyV2LendDetails, LevvyV2PaymentDatum, LevvyV2RepayDetails, LevvyV2TokenAction, LevvyV2TokenDatum, TokenDetails, TokenSwapDatum } from "./lib/schema";
 
 async function main() {
     dotenv.config();
@@ -80,42 +78,45 @@ async function main() {
         HexBlob(process.env["LEVVY_COMPILED_CODE"]!)
     ));
 
-    const validatorAddress = addressFromValidator(NetworkId.Testnet, script);
-    const levvyValidatorAddress = addressFromValidator(NetworkId.Testnet, levvyScript);
+    const levvyV2Script = Script.newPlutusV3Script(PlutusV3Script.fromCbor(
+        HexBlob(process.env["LEVVY_V2_COMPILED_CODE"]!)
+    ));
+    console.log(levvyV2Script.hash());
 
+    const validatorAddress = addressFromValidator(NetworkId.Testnet, script);
     const platformAddress = Address.fromBech32(process.env["PLATFORM_ADDRESS"]!);
     const borrowerAddress = Address.fromBech32("addr_test1qzxhwhx5ayuhcg6e7xcufy0ta6z5z2q6hwjl8m2r9cmcst0n3lfh3d6a7ege7gepfnhz2gxnm2rsvyd7yngf878k47wqjrmaqk");
     const receiverAddress = Address.fromBech32("addr_test1qqd86cnx53kdhyhwyu9czgmhkuucyevhp2ez7vxu3zkfa5vudpnr948a9kje6sqqqe5ear3wq260zns6q9ketpfl3jwq4vhh0k");
     const feeAddress = Address.fromBech32(process.env["FEE_ADDRESS"]!);
 
+    const levvyValidatorAddress = addressFromValidator(NetworkId.Testnet, levvyScript);
+    const levvyPlatformAddress = Address.fromBech32(process.env["LEVVY_PLATFORM_ADDRESS"]!);
+
+    const levvyV2ValidatorAddress = addressFromValidator(NetworkId.Testnet, levvyV2Script);
+    const levvyV2MainAddress = Address.fromBech32(process.env["LEVVY_V2_MAIN_ADDRESS"]!);
+
     const rewardAccount = RewardAccount.fromCredential({
         type: CredentialType.ScriptHash,
         hash: script.hash()
     }, NetworkId.Testnet);
- 
-    // Modify your loan input here
-    const loan: LoanInput = {
-        lender: kupmiosWallet.address,
-        amount: 5_000_000n,
-        interestAmount: 3_000_000n,
-        duration: 76900000n,
-        collateral: {
-            policyId: "8b05e87a51c1d4a0fa888d2bb14dbc25e8c343ea379a171b63aa84a0",
-            assetName: "434e4354",
-            amount: 6_000n
-        }
-    }
-    
-    // await deployScriptToContract(kupmiosBlaze, levvyScript, levvyValidatorAddress);
+
+    // await deployScriptToContract(kupmiosBlaze, levvyV2Script, levvyV2ValidatorAddress);
     // await registerCredential(kupmiosBlaze, levvyScript);
 
     // await sendLovelace(blockfrostBlaze, receiverAddress);
 
     // // LEVVY TRANSACTIONS
-    await lend(loan, kupmiosBlaze, levvyValidatorAddress);
-    // await borrow(loan, blockfrostBlaze, borrowerAddress, validatorAddress, platformAddress, script);
+    // await lend(loan, kupmiosBlaze, levvyValidatorAddress);
+    // await cancel(kupmiosBlaze, levvyScript, levvyPlatformAddress, kupmiosWallet);
+    // await borrow(loan, kupmiosBlaze, borrowerAddress, levvyValidatorAddress, levvyPlatformAddress, levvyScript);
     // await repay(loan, blockfrostBlaze, script);
     // await foreclose(loan, blockfrostBlaze, script);
+
+    // // LEVVY V2 TRANSACTIONS
+    // await levvyV2Lend(kupmiosBlaze, levvyV2ValidatorAddress);
+    // await levvyV2Borrow(kupmiosBlaze, kupmiosWallet.address, levvyV2ValidatorAddress, levvyV2MainAddress);
+    // await levvyV2Repay(kupmiosBlaze, kupmiosWallet.address, levvyV2ValidatorAddress);
+    // await levvyV2Cancel(kupmiosBlaze, kupmiosWallet.address);
 
     // await lockTx(kupmiosBlaze, validatorAddress);
     // await swapTx(kupmiosBlaze, rewardAccount);
@@ -271,27 +272,218 @@ async function lend(
         levvyType: Tokens,
     }, LendDetails);
 
-    console.log(lendDetails.toCbor());
-
     const platformFee = calculatePlatformFee(loan.interestAmount, tokenFeePercent);
-
+    console.log(platformFee);
     const lendDatum = Data.to({
         LendDatum: { lendDetails }
     }, LevvyDatum);
 
-    // const lockTx = await blaze
-    //     .newTransaction()
-    //     .lockLovelace(
-    //         validatorAddr, 
-    //         loan.amount + platformFee,
-    //         lendDatum
-    //     )
-    //     .complete();
+    const lockTx = await blaze
+        .newTransaction()
+        .lockLovelace(
+            validatorAddr, 
+            loan.amount + platformFee,
+            lendDatum
+        )
+        .complete();
 
-    // const signedTx = await blaze.signTransaction(lockTx);
+    const signedTx = await blaze.signTransaction(lockTx);
+    console.log(signedTx.toCbor());
     // const txId = await blaze.provider.postTransactionToChain(signedTx);
     // console.log("Transaction Id", txId);
 }
+
+async function levvyV2Lend(
+    blaze: Blaze<Blockfrost | Kupmios, HotWallet>,
+    validatorAddress: Address
+) {
+    const lendTokenDetails = Data.to({
+        adaOwner: Data.to({
+            paymentCredential: Data.to({
+                keyHash: "8d775cd4e9397c2359f1b1c491ebee8541281abba5f3ed432e37882d"
+            }, DatumCredential),
+            stakeCredential: { Inline: { credential: Data.to({
+                keyHash: "f38fd378b75df6519f23214cee2520d3da870611be24d093f8f6af9c"
+            }, DatumCredential) }}
+        }, DatumAddress),
+        policyId: "8b05e87a51c1d4a0fa888d2bb14dbc25e8c343ea379a171b63aa84a0",
+        assetName: "434e4354",
+        tokenAmount: 6_000n,
+        loanAmount: 5_000_000n,
+        interestAmount: 3_000_000n,
+        loanDuration: 3_600n,
+        outputReference: Data.to({
+            transaction_id: "00",
+            output_index: 0n,
+        }, OutputReference),
+    }, LevvyV2LendDetails);
+
+    const lendTokenDatum = Data.to({
+        LendTokenDatum: { lendTokenDetails }
+    }, LevvyV2TokenDatum);
+
+    const lendTx = await blaze
+        .newTransaction()
+        .lockLovelace(validatorAddress, 5_000_000n, lendTokenDatum)
+        .complete();
+
+    const signedTx = await blaze.signTransaction(lendTx);
+    const txId = await blaze.provider.postTransactionToChain(signedTx);
+    console.log("Transaction Id", txId);
+}
+
+async function levvyV2Borrow(
+    blaze: Blaze<Blockfrost | Kupmios, HotWallet>,
+    ownerWallet: Address,
+    validatorAddress: Address,
+    mainAddress: Address
+) {
+    const lockedUtxo = await blaze.provider.resolveUnspentOutputs([
+        new TransactionInput(
+            TransactionId("34b21e2d38356bdd1c01c3e2d6807d183914f2b3f20390e3027e05a333ec347c"),
+            0n
+        )
+    ]);
+
+    const scriptRef = await blaze.provider.resolveUnspentOutputs([
+        new TransactionInput(
+            TransactionId(process.env["LEVVY_V2_SCRIPT_REF_TX_HASH"]!),
+            0n
+        )
+    ]);
+
+    const borrowTokenDetails = Data.to({
+        adaOwner: Data.to({
+            paymentCredential: Data.to({ keyHash: "8d775cd4e9397c2359f1b1c491ebee8541281abba5f3ed432e37882d" }, DatumCredential),
+            stakeCredential: { Inline: { credential: Data.to({ keyHash: "f38fd378b75df6519f23214cee2520d3da870611be24d093f8f6af9c" }, DatumCredential) } },
+        }, DatumAddress),
+        assetOwner: Data.to({
+            paymentCredential: Data.to({ keyHash: "8d775cd4e9397c2359f1b1c491ebee8541281abba5f3ed432e37882d" }, DatumCredential),
+            stakeCredential: { Inline: { credential: Data.to({ keyHash: "f38fd378b75df6519f23214cee2520d3da870611be24d093f8f6af9c" }, DatumCredential) } },
+        }, DatumAddress),
+        policyId: "8b05e87a51c1d4a0fa888d2bb14dbc25e8c343ea379a171b63aa84a0",
+        assetName: "434e4354",
+        tokenAmount: 3500n,
+        loanAmount: 5000000n,
+        interestAmount: 3000000n,
+        loanEndTime: 4000n,
+        outputReference: Data.to({
+            transaction_id: "34b21e2d38356bdd1c01c3e2d6807d183914f2b3f20390e3027e05a333ec347c",
+            output_index: 0n,
+        }, OutputReference),
+    }, LevvyV2BorrowDetails);
+
+    const borrowTokenDatum = Data.to({
+        BorrowTokenDatum: { borrowTokenDetails }
+    }, LevvyV2TokenDatum);
+
+    const paymentDatum = Data.to({
+        outputReference: Data.to({
+            transaction_id: "34b21e2d38356bdd1c01c3e2d6807d183914f2b3f20390e3027e05a333ec347c",
+            output_index: 0n,
+        }, OutputReference)
+    }, LevvyV2PaymentDatum);
+
+    const assetId = AssetId.fromParts(
+        PolicyId("8b05e87a51c1d4a0fa888d2bb14dbc25e8c343ea379a171b63aa84a0"),
+        AssetName("434e4354")
+    );
+    const tokenMapper = new Map<AssetId, bigint>();
+
+    const borrowTx = await blaze
+        .newTransaction()
+        .addInput(lockedUtxo[0], Data.to({ BorrowTokenAction: Data.Object([]) }, LevvyV2TokenAction))
+        .addReferenceInput(scriptRef[0])
+        .setValidFrom(Slot(4000))
+        .lockAssets(validatorAddress, new Value(5000000n, tokenMapper.set(assetId, 3500n)), borrowTokenDatum)
+        .payLovelace(mainAddress, 2_000_000n, paymentDatum)
+        .complete();
+
+    const signedTx = await blaze.signTransaction(borrowTx);
+    const txId = await blaze.provider.postTransactionToChain(signedTx);
+    console.log("Transaction Id", txId);
+}
+
+async function levvyV2Repay(
+    blaze: Blaze<Blockfrost | Kupmios, HotWallet>,
+    payerAddress: Address,
+    validatorAddress: Address
+) {
+    const lockedUtxo = await blaze.provider.resolveUnspentOutputs([
+        new TransactionInput(
+            TransactionId("2a969124d92942e786210fedf49fdb1c1fe527640e70fae3a865564654e54a5c"),
+            0n
+        )
+    ]);
+
+    const scriptRef = await blaze.provider.resolveUnspentOutputs([
+        new TransactionInput(
+            TransactionId(process.env["LEVVY_V2_SCRIPT_REF_TX_HASH"]!),
+            0n
+        )
+    ]);
+
+    const repayTokenDetails = Data.to({
+        adaOwner: Data.to({
+            paymentCredential: Data.to({ keyHash: "8d775cd4e9397c2359f1b1c491ebee8541281abba5f3ed432e37882d" }, DatumCredential),
+            stakeCredential: { Inline: { credential: Data.to({ keyHash: "f38fd378b75df6519f23214cee2520d3da870611be24d093f8f6af9c" }, DatumCredential) } },
+        }, DatumAddress),
+        tokenAmount: 3500n,
+        loanAmount: 5000000n,
+        interestAmount: 3000000n,
+        outputReference: Data.to({
+            transaction_id: "2a969124d92942e786210fedf49fdb1c1fe527640e70fae3a865564654e54a5c",
+            output_index: 0n,
+        }, OutputReference),
+    }, LevvyV2RepayDetails)
+
+    const repayTokenDatum = Data.to({
+        RepayTokenDatum: { repayTokenDetails }
+    }, LevvyV2TokenDatum);
+
+    const repayTx = await blaze
+        .newTransaction()
+        .addInput(lockedUtxo[0], Data.to({ RepayTokenAction: Data.Object([]) }, LevvyV2TokenAction))
+        .addReferenceInput(scriptRef[0])
+        .addRequiredSigner(Ed25519KeyHashHex(payerAddress.asBase()?.getPaymentCredential().hash!))
+        .lockAssets(validatorAddress, new Value(8000000n), repayTokenDatum)
+        .complete();
+
+    const signedTx = await blaze.signTransaction(repayTx);
+    const txId = await blaze.provider.postTransactionToChain(signedTx);
+    console.log("Transaction Id", txId);
+}
+
+async function levvyV2Cancel(
+    blaze: Blaze<Blockfrost | Kupmios, HotWallet>,
+    ownerAddress: Address
+){
+    const lockedUtxo = await blaze.provider.resolveUnspentOutputs([
+        new TransactionInput(
+            TransactionId("b9ee6ae8426d850999033ea14276f89cac619c7dbaabc3dda4d5237722e297bb"),
+            0n
+        )
+    ]);
+
+    const scriptRef = await blaze.provider.resolveUnspentOutputs([
+        new TransactionInput(
+            TransactionId(process.env["LEVVY_V2_SCRIPT_REF_TX_HASH"]!),
+            0n
+        )
+    ]);
+
+    const cancelTx = await blaze
+        .newTransaction()
+        .addInput(lockedUtxo[0], Data.to({ CancelTokenAction: Data.Object([]) }, LevvyV2TokenAction))
+        .addReferenceInput(scriptRef[0])
+        .addRequiredSigner(Ed25519KeyHashHex(ownerAddress.asBase()?.getPaymentCredential().hash!))
+        .complete();
+
+    const signedTx = await blaze.signTransaction(cancelTx);
+    const txId = await blaze.provider.postTransactionToChain(signedTx);
+    console.log("Transaction Id", txId);
+}
+
 
 // Borrow a lend position from Smart Contract
 async function borrow(
@@ -305,7 +497,7 @@ async function borrow(
     // Locked Output Reference
     const lockedUtxo = await blaze.provider.resolveUnspentOutputs([
         new TransactionInput(
-            TransactionId("0e2125de597b5467a69eefc5f053fe86f305bd5ce9be42991742ab6bbaaf64d0"),
+            TransactionId("0ad7a631e3d1b7328f1e3128f5af4cd2c63e64a90cecc984667f5f8528491074"),
             0n
         )
     ]);
@@ -313,13 +505,17 @@ async function borrow(
     const platformFee = calculatePlatformFee(loan.interestAmount, tokenFeePercent);
 
     const outputRef = Data.to({
-        transaction_id: "0e2125de597b5467a69eefc5f053fe86f305bd5ce9be42991742ab6bbaaf64d0",
+        transaction_id: "0ad7a631e3d1b7328f1e3128f5af4cd2c63e64a90cecc984667f5f8528491074",
         output_index: 0n,
     }, OutputReference);
+
+    console.log(outputRef.toCbor())
 
     const datumTag = Data.to(blake2b_256(HexBlob.fromBytes(
         Buffer.from(outputRef.toCbor(), "hex")
     )), Data.Bytes());
+
+    console.log(datumTag.toCbor());
 
     const borrowDetails = Data.to({
         lender: Data.to({
@@ -363,32 +559,32 @@ async function borrow(
         hash: script.hash()
     }, NetworkId.Testnet)
 
-    const borrowTx = await blaze
-        .newTransaction()
-        .addInput(lockedUtxo[0], Data.void())
-        .addWithdrawal(rewardAccount, 0n, withdrawRedeemer)
-        .lockAssets(
-            validatorAddr,
-            createValue(
-                2_000_000n,
-                PolicyId(loan.collateral.policyId),
-                AssetName(loan.collateral.assetName),
-                loan.collateral.amount
-            ),
-            borrowDatum
-        )
-        .payLovelace(
-            platformAddr,
-            platformFee * 2n,
-            datumTag
-        )
-        .setValidFrom(Slot(0))
-        .provideScript(script)
-        .complete();
+    // const borrowTx = await blaze
+    //     .newTransaction()
+    //     .addInput(lockedUtxo[0], Data.void())
+    //     .addWithdrawal(rewardAccount, 0n, withdrawRedeemer)
+    //     .lockAssets(
+    //         validatorAddr,
+    //         createValue(
+    //             2_000_000n,
+    //             PolicyId(loan.collateral.policyId),
+    //             AssetName(loan.collateral.assetName),
+    //             loan.collateral.amount
+    //         ),
+    //         borrowDatum
+    //     )
+    //     .payLovelace(
+    //         platformAddr,
+    //         platformFee * 2n,
+    //         datumTag
+    //     )
+    //     .setValidFrom(Slot(0))
+    //     .provideScript(script)
+    //     .complete();
 
-    const signedTx = await blaze.signTransaction(borrowTx);
-    const txId = await blaze.provider.postTransactionToChain(signedTx);
-    console.log("Transaction Id", txId);
+    // const signedTx = await blaze.signTransaction(borrowTx);
+    // const txId = await blaze.provider.postTransactionToChain(signedTx);
+    // console.log("Transaction Id", txId);
 }
 
 // Repay the borrowed position to the owner
@@ -509,7 +705,14 @@ async function cancel(
 ) {
     const lockedUtxos = await blaze.provider.resolveUnspentOutputs([
         new TransactionInput(
-            TransactionId("16d8d8a3f4f51aebf30a1acacd6054a7e4425d1338c523a282d60ee5c638a115"),
+            TransactionId("0ad7a631e3d1b7328f1e3128f5af4cd2c63e64a90cecc984667f5f8528491074"),
+            0n
+        )
+    ]);
+
+    const scriptUtxos = await blaze.provider.resolveUnspentOutputs([
+        new TransactionInput(
+            TransactionId("97773a4f7940025dfffbe4e26d970cdc94205ed8aa241232afb43a2c04f7b126"),
             0n
         )
     ]);
@@ -540,15 +743,16 @@ async function cancel(
     const cancelTx = await blaze
         .newTransaction()
         .addInput(lockedUtxos[0], Data.void())
+        .addReferenceInput(scriptUtxos[0])
         .addRequiredSigner(Ed25519KeyHashHex(ownerWallet.address.asBase()?.getPaymentCredential().hash!))
         .addWithdrawal(rewardAccount, 0n, withdrawRedeemer)
         .payLovelace(platformAddr, 2_000_000n)
-        .provideScript(script)
         .complete();
 
     const signedTx = await blaze.signTransaction(cancelTx);
-    const txId = await blaze.provider.postTransactionToChain(signedTx);
-    console.log("Transaction Id", txId);
+    console.log(signedTx.toCbor());
+    // const txId = await blaze.provider.postTransactionToChain(signedTx);
+    // console.log("Transaction Id", txId);
 }
 
 // Register stake credential
@@ -607,5 +811,4 @@ async function mint(blaze: Blaze<Blockfrost, HotWallet>, walletAddr: Address, mi
     const txId = await blaze.provider.postTransactionToChain(signedTx);
     console.log("Transaction Id", txId);
 }
-
 main();
