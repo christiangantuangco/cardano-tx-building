@@ -1,12 +1,12 @@
 using Chrysalis.Cbor.Serialization.Attributes;
 using Chrysalis.Cbor.Types;
 
-namespace LevvyTxBuilding.Data.Types;
+namespace LevvyTxBuilding.Data.Types.Cbor;
 
 [CborSerializable]
 [CborConstr(0)]
 public partial record CollateralDetails(
-    string PolicyId,
-    string AssetName,
+    byte[] PolicyId,
+    byte[] AssetName,
     ulong CollateralAmount
 ) : CborBase;

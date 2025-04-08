@@ -2,7 +2,7 @@ using Chrysalis.Cbor.Serialization.Attributes;
 using Chrysalis.Cbor.Types;
 using Chrysalis.Cbor.Types.Plutus.Address;
 
-namespace LevvyTxBuilding.Data.Types;
+namespace LevvyTxBuilding.Data.Types.Cbor;
 
 [CborSerializable]
 [CborConstr(0)]
