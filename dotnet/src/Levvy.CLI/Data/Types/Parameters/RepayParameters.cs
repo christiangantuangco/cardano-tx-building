@@ -2,17 +2,12 @@ using Chrysalis.Cbor.Types.Cardano.Core.Common;
 using Chrysalis.Cbor.Types.Cardano.Core.Transaction;
 using Chrysalis.Cbor.Types.Cardano.Core.TransactionWitness;
 
-namespace LevvyTxBuilding.Data.Types;
+namespace Levvy.CLI.Data.Types.Parameters;
 
-public record LendParameters(
-    Value Amount,
-    DatumOption LendDatum
-);
-
-public record CancelParameters(
+public record RepayParameters(
     TransactionInput LockedUtxoOutref,
     TransactionInput ScriptOutref,
     RedeemerMap SpendRedeemer,
-    RedeemerMap WithdrawRedeemer,
-    Value PlatformAmount
+    Value RepayAmount,
+    DatumOption Datum
 );

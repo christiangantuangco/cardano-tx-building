@@ -1,4 +1,4 @@
-namespace LevvyTxBuilding.Data.Utils;
+namespace Levvy.CLI.Data.Utils;
 
 
 public static class LevvyUtils

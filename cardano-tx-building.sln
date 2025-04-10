@@ -8,7 +8,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{D90AB541-740
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CardanoTxBuilding", "dotnet\src\CardanoTxBuilding\CardanoTxBuilding.csproj", "{312AB455-7D53-ECCD-754F-21B68ED41957}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LevvyTxBuilding", "dotnet\src\LevvyTxBuilding\LevvyTxBuilding.csproj", "{1DD1DAB2-054B-392D-3835-2B2925B16097}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Levvy.CLI", "dotnet\src\Levvy.CLI\Levvy.CLI.csproj", "{F9BDC318-27C3-F991-C3E6-07C616582C4C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,10 +20,10 @@ Global
 		{312AB455-7D53-ECCD-754F-21B68ED41957}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{312AB455-7D53-ECCD-754F-21B68ED41957}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{312AB455-7D53-ECCD-754F-21B68ED41957}.Release|Any CPU.Build.0 = Release|Any CPU
-		{1DD1DAB2-054B-392D-3835-2B2925B16097}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{1DD1DAB2-054B-392D-3835-2B2925B16097}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{1DD1DAB2-054B-392D-3835-2B2925B16097}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{1DD1DAB2-054B-392D-3835-2B2925B16097}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F9BDC318-27C3-F991-C3E6-07C616582C4C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F9BDC318-27C3-F991-C3E6-07C616582C4C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F9BDC318-27C3-F991-C3E6-07C616582C4C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F9BDC318-27C3-F991-C3E6-07C616582C4C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -31,9 +31,9 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{D90AB541-7400-80B1-A0B4-F58D0D439F55} = {71E6E750-85FD-B5BC-4321-E01377EC6231}
 		{312AB455-7D53-ECCD-754F-21B68ED41957} = {D90AB541-7400-80B1-A0B4-F58D0D439F55}
-		{1DD1DAB2-054B-392D-3835-2B2925B16097} = {D90AB541-7400-80B1-A0B4-F58D0D439F55}
+		{F9BDC318-27C3-F991-C3E6-07C616582C4C} = {D90AB541-7400-80B1-A0B4-F58D0D439F55}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {40D8E2BF-963D-4316-83DC-9F62464691EB}
+		SolutionGuid = {D83E9CEE-95E0-42D1-8E81-4AB76A5881C2}
 	EndGlobalSection
 EndGlobal
