@@ -20,7 +20,7 @@ using Levvy.CLI.Data.Types.Parameters;
 using System.Net.NetworkInformation;
 using Chrysalis.Cbor.Types.Cardano.Core.Transaction;
 
-var configuration = new ConfigurationBuilder()
+IConfigurationRoot configuration = new ConfigurationBuilder()
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", false, true)
     .Build();
@@ -52,7 +52,7 @@ TransactionInput collateralInput = new(
 );
 
 // await Lend();
-await Borrow();
+// await Borrow();
 // await Repay();
 // await Claim();
 // await Foreclose();
@@ -159,7 +159,7 @@ async Task Borrow()
                     new RedeemerKey(0, 1),
                     new RedeemerValue(
                         new PlutusConstr([]) { ConstrIndex = 121 },
-                        new ExUnits(1400000, 100000000)
+                        new ExUnits(1400000, 1000000000)
                     )
                 }
             }
@@ -225,9 +225,7 @@ async Task Borrow()
         .Build();
 
     Transaction unsignedBorrowTx = await borrow(borrowParams);
-    Console.WriteLine(Convert.ToHexString(CborSerializer.Serialize(unsignedBorrowTx)));
     Transaction signedBorrowTx = unsignedBorrowTx.Sign(privateKey);
-
     string txId = await provider.SubmitTransactionAsync(signedBorrowTx);
 
     Console.Write("Transaction Id: ");
@@ -245,7 +243,7 @@ async Task Repay()
         LoanAmount: 5000000,
         InterestAmount: 3000000,
         OutputReference: new(
-            Convert.FromHexString("a3ab9ffce7c6114b72de98a7bf0c97f98ca6baa5a612791e6a94a4c06809396f"),
+            Convert.FromHexString("8d04bab2710f56dc41cb17b0e7f3f13178ded0634e33ca037dd51f46efefbc2c"),
             0
         )
     );
@@ -254,7 +252,7 @@ async Task Repay()
 
     RepayParameters repayParameters = new(
         LockedUtxoOutref: new(
-            Convert.FromHexString("a3ab9ffce7c6114b72de98a7bf0c97f98ca6baa5a612791e6a94a4c06809396f"),
+            Convert.FromHexString("8d04bab2710f56dc41cb17b0e7f3f13178ded0634e33ca037dd51f46efefbc2c"),
             0
         ),
         ScriptOutref: new(
