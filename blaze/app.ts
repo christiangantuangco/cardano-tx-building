@@ -26,7 +26,7 @@ import {
     wordlist,
 } from "@blaze-cardano/core";
 import { Unwrapped } from "@blaze-cardano/ogmios";
-import { HotWallet, Blaze, Data, Blockfrost, Kupmios } from "@blaze-cardano/sdk";
+import { HotWallet, Blaze, Data, Blockfrost, Kupmios, Core } from "@blaze-cardano/sdk";
 import dotenv from 'dotenv';
 import { calculatePlatformFee, createValue, tokenFeePercent } from "./lib/utils"
 import {
@@ -121,6 +121,8 @@ async function main() {
     // await lockTx(kupmiosBlaze, validatorAddress);
     // await swapTx(kupmiosBlaze, rewardAccount);
     // await cancelTx(kupmiosBlaze, rewardAccount, kupmiosWallet.address, feeAddress);
+
+    await evalTx(kupmiosProvider, kupmiosWallet);
 }
 
 async function lockTx(blaze: Blaze<Blockfrost | Kupmios, HotWallet>, validatorAddress: Address) {
@@ -811,4 +813,103 @@ async function mint(blaze: Blaze<Blockfrost, HotWallet>, walletAddr: Address, mi
     const txId = await blaze.provider.postTransactionToChain(signedTx);
     console.log("Transaction Id", txId);
 }
+
+async function evalTx(
+    provider: Kupmios,
+    wallet: HotWallet
+) {
+    const blaze = await Blaze.from(provider, wallet);
+    const txCbor =
+      "84aa00d901028482582025e615156cd9e10be59d9a17776ef7958d46d1f57919a5fc58a616902f0e185c0082582025e615156cd9e10be59d9a17776ef7958d46d1f57919a5fc58a616902f0e185c01825820648ed7df24334a94c7d3d795bb1f2496c9c0a40fbc7a9bca249afa0f1451267200825820648ed7df24334a94c7d3d795bb1f2496c9c0a40fbc7a9bca249afa0f14512672010182a300581d70fa74d35f4b0d48ac6288ac5cea71f28e807565ad09845232f229660f011a007a1200028201d818588ed87b81d87986d87981d87981581c8d775cd4e9397c2359f1b1c491ebee8541281abba5f3ed432e37882dd87981d87981581c8d775cd4e9397c2359f1b1c491ebee8541281abba5f3ed432e37882dd8798340401a004c4b40d8798340401a004c4b40d8798340401a002dc6c058208ab79db52ebba38fe9b4edfbcd0f3a837ac25a35871961db074d9c8010d4c4f7825839008d775cd4e9397c2359f1b1c491ebee8541281abba5f3ed432e37882df38fd378b75df6519f23214cee2520d3da870611be24d093f8f6af9c821b000000013d35a51ea4581c0d85a956ba19b06f15d74d96c94146dc3f7ec95b64123e397b8f8fe5a14754455354455253191324581c8b05e87a51c1d4a0fa888d2bb14dbc25e8c343ea379a171b63aa84a0a144434e43541a00020f58581cc2e24d97d08a18b175ca87c03493bbef0262992d64c190e4edb32c20a14954657374546f6b656e191388581cdef68337867cb4f1f95b6b811fedbfcdd7780d10a95cc072077088eaa147706172616d73311901f1021a00097f9105a1581df02e822c34a4d90a7b79a3755ffc20706ea0f7676d201398abd5763a02000b5820b4d5450a328efe2a53c89fcde2ba970440c0dc9731f93974a79e3883d44311210dd901028182582043bab144f56cb9883195fd88a6ac317c33105ca1cb8f4c06efa95a5b2eff9dd6010ed9010281581c8d775cd4e9397c2359f1b1c491ebee8541281abba5f3ed432e37882d10825839008d775cd4e9397c2359f1b1c491ebee8541281abba5f3ed432e37882df38fd378b75df6519f23214cee2520d3da870611be24d093f8f6af9c1ab1d2ea92111a000e3f5a12d90102828258202e9a2f7ff63a0445b91f9ad68736a6567cc299df220921e420a27e52f16bcd03008258205d84910a2e0ece53b64fe2bf0f0d3cdc8f32993d3a5b3fee7c15a8e237fc9e1600a200d9010281825820161b5f43c774b4eb37c1e74c38e6e6128924df5072197d8d6d5aabf75a51ec6c5840a02f0c176c5a3acc33ec86736317280eb7692bc10a1937b90d202eea73a49573ec56127327c2734e487b141b354ebdf72b16f0a75e3258f741ca39af2d4cc30f05a282000082d87981d87985d8798200d87a80d8798100d87a80d8798400d87a80d87a80d87a80d87980821a00155cc01a05f5e1008203008281d87982582025e615156cd9e10be59d9a17776ef7958d46d1f57919a5fc58a616902f0e185c00821a00155cc01a3b9aca00f5f6";
+  
+    const utxos: TransactionInput[] = [
+      new TransactionInput(
+        TransactionId.fromHexBlob(
+          HexBlob.fromBytes(
+            Buffer.from(
+              "25e615156cd9e10be59d9a17776ef7958d46d1f57919a5fc58a616902f0e185c",
+              "hex"
+            )
+          )
+        ),
+        0n
+      ),
+      new TransactionInput(
+        TransactionId.fromHexBlob(
+          HexBlob.fromBytes(
+            Buffer.from(
+              "25e615156cd9e10be59d9a17776ef7958d46d1f57919a5fc58a616902f0e185c",
+              "hex"
+            )
+          )
+        ),
+        1n
+      ),
+      new TransactionInput(
+        TransactionId.fromHexBlob(
+          HexBlob.fromBytes(
+            Buffer.from(
+              "648ed7df24334a94c7d3d795bb1f2496c9c0a40fbc7a9bca249afa0f14512672",
+              "hex"
+            )
+          )
+        ),
+        0n
+      ),
+      new TransactionInput(
+        TransactionId.fromHexBlob(
+          HexBlob.fromBytes(
+            Buffer.from(
+              "648ed7df24334a94c7d3d795bb1f2496c9c0a40fbc7a9bca249afa0f14512672",
+              "hex"
+            )
+          )
+        ),
+        1n
+      ),
+      new TransactionInput(
+        TransactionId.fromHexBlob(
+          HexBlob.fromBytes(
+            Buffer.from(
+              "43bab144f56cb9883195fd88a6ac317c33105ca1cb8f4c06efa95a5b2eff9dd6",
+              "hex"
+            )
+          )
+        ),
+        1n
+      ),
+      new TransactionInput(
+        TransactionId.fromHexBlob(
+          HexBlob.fromBytes(
+            Buffer.from(
+              "2e9a2f7ff63a0445b91f9ad68736a6567cc299df220921e420a27e52f16bcd03",
+              "hex"
+            )
+          )
+        ),
+        0n
+      ),
+      new TransactionInput(
+        TransactionId.fromHexBlob(
+          HexBlob.fromBytes(
+            Buffer.from(
+              "5d84910a2e0ece53b64fe2bf0f0d3cdc8f32993d3a5b3fee7c15a8e237fc9e16",
+              "hex"
+            )
+          )
+        ),
+        0n
+      ),
+      
+    ];
+  
+    const resolvedUtxos = await provider.resolveUnspentOutputs(utxos);
+  
+    const tx = Core.Transaction.fromCbor(txCbor as TxCBOR);
+  
+    const evalTx = await blaze.provider.evaluateTransaction(tx, resolvedUtxos);
+  
+    console.log(evalTx.toCore());
+  }
+
 main();
